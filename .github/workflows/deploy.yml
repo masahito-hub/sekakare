@@ -18,3 +18,10 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: /home/aitah/sekakare.life/public_html/
+          # ⬇️ これらの行を追加
+          dangerous-clean-slate: true  # フルデプロイを強制
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            .github/**
