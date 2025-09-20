@@ -31,12 +31,12 @@ function initMap() {
         // 検索ボックスを有効化
         document.getElementById('searchBox').disabled = false;
 
-        // 地図移動時の自動検索を設定
-        setupAutoSearch();
+        // 地図移動時の自動検索を無効化（店名検索専用）
+        // setupAutoSearch();
 
-        // 周辺のカレー店を検索
-        console.log('周辺のカレー店を検索します');
-        autoSearchCurryShops(Config.settings.defaultLocation);
+        // 初期表示時の自動検索を無効化（店名検索専用）
+        // console.log('周辺のカレー店を検索します');
+        // autoSearchCurryShops(Config.settings.defaultLocation);
 
         // ヒートマップを表示
         displayHeatmap();
@@ -53,18 +53,19 @@ function initMap() {
     }
 }
 
-// 自動検索の設定
+// 自動検索の設定（無効化 - 店名検索専用）
 function setupAutoSearch() {
-    map.addListener('idle', () => {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            const center = map.getCenter();
-            if (center) {
-                console.log('地図移動検出 - 周辺のカレー店を検索中...');
-                autoSearchCurryShops(center);
-            }
-        }, Config.settings.autoSearchDelay);
-    });
+    // 地図移動時の自動検索は無効化
+    // map.addListener('idle', () => {
+    //     clearTimeout(searchTimeout);
+    //     searchTimeout = setTimeout(() => {
+    //         const center = map.getCenter();
+    //         if (center) {
+    //             console.log('地図移動検出 - 周辺のカレー店を検索中...');
+    //             autoSearchCurryShops(center);
+    //         }
+    //     }, Config.settings.autoSearchDelay);
+    // });
 }
 
 // 地図移動時の自動検索関数（GAイベント付き）
@@ -128,9 +129,9 @@ function autoSearchCurryShops(location) {
     });
 }
 
-// キーワード検索機能（GAイベント付き）
+// 店名専用検索機能（GAイベント付き）
 function searchCurryByKeyword(keyword) {
-    console.log('キーワード検索中:', keyword);
+    console.log('店名検索中:', keyword);
 
     // Google Analytics カスタムイベント - 検索実行
     if (typeof gtag !== 'undefined') {
@@ -142,29 +143,32 @@ function searchCurryByKeyword(keyword) {
         });
     }
 
-    updateDebugInfo('<strong>🔍 検索中...</strong> "' + keyword + '" でカレー店を検索しています');
+    updateDebugInfo('<strong>🔍 検索中...</strong> "' + keyword + '" を店名で検索しています');
 
     const request = {
-        textQuery: keyword + ' カレー',
+        textQuery: keyword,
         fields: ['displayName', 'location', 'businessStatus', 'formattedAddress'],
-        maxResultCount: Config.settings.maxSearchResults
+        maxResultCount: 1  // 店名検索は1件のみ表示
     };
 
-    const center = map.getCenter();
-    if (center) {
-        request.locationBias = { lat: center.lat(), lng: center.lng() };
-    }
+    // locationBiasは削除（全国から検索）
+    // const center = map.getCenter();
+    // if (center) {
+    //     request.locationBias = { lat: center.lat(), lng: center.lng() };
+    // }
 
     google.maps.places.Place.searchByText(request).then((response) => {
         console.log('検索結果:', response);
 
         if (response.places && response.places.length > 0) {
             clearMarkers();
-            response.places.forEach(place => createNewMarker(place));
+            // 店名検索は最初の1件のみ表示
+            const targetPlace = response.places[0];
+            createNewMarker(targetPlace);
 
-            if (response.places[0] && response.places[0].location) {
-                map.setCenter(response.places[0].location);
-                map.setZoom(Config.settings.defaultZoom);
+            if (targetPlace && targetPlace.location) {
+                map.setCenter(targetPlace.location);
+                map.setZoom(16);  // 店舗にフォーカス
             }
 
             // Google Analytics - 検索成功イベント
@@ -178,7 +182,7 @@ function searchCurryByKeyword(keyword) {
                 });
             }
 
-            updateDebugInfo(`<strong>✅ 検索完了！</strong> "${keyword}" で${response.places.length}件のカレー店が見つかりました`);
+            updateDebugInfo(`<strong>✅ 検索完了！</strong> "${keyword}" の店舗が見つかりました`);
 
             document.getElementById('searchBox').value = '';
 
@@ -195,7 +199,7 @@ function searchCurryByKeyword(keyword) {
                 });
             }
 
-            updateDebugInfo(`<strong>⚠️ 検索結果なし</strong> "${keyword}" に該当するカレー店が見つかりませんでした`);
+            updateDebugInfo(`<strong>⚠️ 検索結果なし</strong> "${keyword}" という店名のカレー店が見つかりませんでした`);
         }
 
     }).catch((error) => {
