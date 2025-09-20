@@ -141,3 +141,6 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# API設定ファイル（APIキーを含むため除外）
+assets/js/config.js

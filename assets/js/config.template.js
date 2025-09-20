@@ -1,19 +1,19 @@
-// 設定ファイル - APIキーと環境変数管理
+// 設定ファイルのテンプレート
 //
-// 注意: ブラウザ上で動作するJavaScriptでは環境変数を直接読み込むことができません。
-// 本番環境では、以下のいずれかの方法でAPIキーを管理してください：
-// 1. サーバーサイドでAPIキーを管理し、プロキシ経由でアクセス
-// 2. ビルドツール（webpack等）を使用して環境変数をビルド時に注入
-// 3. GitHub ActionsなどのCI/CDツールで自動的に置換
+// 使用方法:
+// 1. このファイルをコピーして config.js として保存
+//    cp assets/js/config.template.js assets/js/config.js
+// 2. config.js の API_KEY を実際のAPIキーに置き換える
+// 3. config.js は .gitignore に追加されているため、誤ってコミットされることはありません
 //
-// 開発時の設定方法:
-// 1. このファイルの API_KEY の値を実際のAPIキーに置き換える
-// 2. このファイルを .gitignore に追加して、誤ってコミットしないようにする
+// 本番環境での設定:
+// - GitHub Actions でのビルド時に環境変数から自動的に置換
+// - または、サーバーサイドでAPIキーを管理し、プロキシ経由でアクセス
 
 const Config = {
-    // Google Maps API Key
-    // 本番環境では環境変数から取得することを推奨
-    // 例: process.env.GOOGLE_MAPS_API_KEY (ビルドツール使用時)
+    // Google Places API Key
+    // 開発環境: 実際のAPIキーに置き換えてください
+    // 本番環境: GitHub Secretsから自動的に注入されます
     API_KEY: 'YOUR_API_KEY_HERE',
 
     // Google Analytics ID
@@ -62,8 +62,18 @@ const Config = {
 
 // APIキーの検証
 function validateApiKey() {
-    if (Config.API_KEY === 'YOUR_API_KEY_HERE') {
-        console.warn('APIキーが設定されていません。Config.API_KEYを設定してください。');
+    if (Config.API_KEY === 'YOUR_API_KEY_HERE' || !Config.API_KEY) {
+        console.error('⚠️ APIキーが設定されていません');
+        console.info('📝 設定方法:');
+        console.info('1. assets/js/config.template.js を config.js としてコピー');
+        console.info('2. config.js の API_KEY を実際のAPIキーに置き換える');
+
+        // エラーメッセージをUIに表示
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#ff4444;color:white;padding:15px 20px;border-radius:8px;z-index:10000;font-family:sans-serif;box-shadow:0 2px 10px rgba(0,0,0,0.3)';
+        errorDiv.innerHTML = '⚠️ APIキーが設定されていません。<br>開発者向け: assets/js/config.jsを確認してください。';
+        document.body.appendChild(errorDiv);
+
         return false;
     }
     return true;
