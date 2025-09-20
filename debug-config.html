@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Config Debug Check</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .debug-container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .key-display {
+            font-family: monospace;
+            background: #f9f9f9;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>🔍 APIキー設定デバッグツール</h1>
+
+        <div id="loading" class="status info">設定ファイルを読み込み中...</div>
+
+        <div id="results" style="display: none;">
+            <h2>設定ファイルの状態</h2>
+            <div id="configStatus"></div>
+
+            <h2>APIキー情報</h2>
+            <div id="keyInfo"></div>
+
+            <h2>デバッグ情報</h2>
+            <pre id="debugInfo"></pre>
+
+            <h2>解決方法</h2>
+            <div id="solution"></div>
+        </div>
+    </div>
+
+    <!-- config.jsを読み込み -->
+    <script src="assets/js/config.js"></script>
+
+    <script>
+        window.addEventListener('load', function() {
+            const loadingDiv = document.getElementById('loading');
+            const resultsDiv = document.getElementById('results');
+            const configStatusDiv = document.getElementById('configStatus');
+            const keyInfoDiv = document.getElementById('keyInfo');
+            const debugInfoDiv = document.getElementById('debugInfo');
+            const solutionDiv = document.getElementById('solution');
+
+            setTimeout(() => {
+                loadingDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+
+                // Config オブジェクトの存在確認
+                if (typeof Config === 'undefined') {
+                    configStatusDiv.innerHTML = '<div class="status error">❌ Config オブジェクトが見つかりません</div>';
+                    solutionDiv.innerHTML = '<div class="status error">config.js ファイルが正しく読み込まれていません。ファイルが存在するか確認してください。</div>';
+                    return;
+                }
+
+                configStatusDiv.innerHTML = '<div class="status success">✅ Config オブジェクトが正常に読み込まれました</div>';
+
+                // APIキーの状態を確認
+                const apiKey = Config.API_KEY;
+                let keyStatus = '';
+                let solution = '';
+
+                if (!apiKey) {
+                    keyStatus = '<div class="status error">❌ APIキーが設定されていません（undefined または null）</div>';
+                    solution = '<div class="status error">GitHub Secretsの設定を確認し、デプロイを再実行してください。</div>';
+                } else if (apiKey === 'YOUR_API_KEY_HERE') {
+                    keyStatus = '<div class="status error">❌ APIキーがプレースホルダーのままです</div>';
+                    solution = '<div class="status error">デプロイ時にAPIキーの置換が失敗しています。GitHub ActionsのログとSecretsの設定を確認してください。</div>';
+                } else {
+                    keyStatus = '<div class="status success">✅ APIキーが設定されています</div>';
+                    solution = '<div class="status success">APIキーは正常に設定されています。Google Cloud ConsoleでAPIキーの有効性とAPI有効化を確認してください。</div>';
+                }
+
+                keyInfoDiv.innerHTML = keyStatus +
+                    '<div class="key-display">キーの長さ: ' + (apiKey ? apiKey.length : 0) + ' 文字</div>' +
+                    '<div class="key-display">最初の10文字: ' + (apiKey ? apiKey.substring(0, 10) + '...' : 'N/A') + '</div>';
+
+                // デバッグ情報
+                const debugData = {
+                    configExists: typeof Config !== 'undefined',
+                    apiKeyExists: !!apiKey,
+                    apiKeyIsPlaceholder: apiKey === 'YOUR_API_KEY_HERE',
+                    apiKeyLength: apiKey ? apiKey.length : 0,
+                    validateApiKeyFunction: typeof validateApiKey !== 'undefined',
+                    timestamp: new Date().toISOString(),
+                    userAgent: navigator.userAgent
+                };
+
+                debugInfoDiv.textContent = JSON.stringify(debugData, null, 2);
+                solutionDiv.innerHTML = solution;
+
+                // validateApiKey関数を実行
+                if (typeof validateApiKey !== 'undefined') {
+                    console.log('validateApiKey()を実行中...');
+                    const isValid = validateApiKey();
+                    console.log('validateApiKey() 結果:', isValid);
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

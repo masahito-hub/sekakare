@@ -62,10 +62,23 @@ const Config = {
 
 // APIキーの検証
 function validateApiKey() {
+    // デバッグ情報をコンソールに表示
+    console.log('API Key validation:');
+    console.log('- Current API_KEY length:', Config.API_KEY ? Config.API_KEY.length : 0);
+    console.log('- Starts with:', Config.API_KEY ? Config.API_KEY.substring(0, 10) + '...' : 'undefined');
+
     if (Config.API_KEY === 'YOUR_API_KEY_HERE') {
-        console.warn('APIキーが設定されていません。Config.API_KEYを設定してください。');
+        console.error('APIキーが設定されていません。Config.API_KEYを設定してください。');
+        console.error('GitHub ActionsのSecretsにGOOGLE_PLACES_API_KEYを設定し、デプロイを再実行してください。');
         return false;
     }
+
+    if (!Config.API_KEY || Config.API_KEY.trim() === '') {
+        console.error('APIキーが空です。');
+        return false;
+    }
+
+    console.log('✅ API Key is set');
     return true;
 }
 
