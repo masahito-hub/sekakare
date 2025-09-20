@@ -17,7 +17,7 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: /home/sekakare.life/public_html/
+          server-dir: /sekakare.life/public_html/
           # ⬇️ これらの行を追加
           dangerous-clean-slate: true  # フルデプロイを強制
           exclude: |
