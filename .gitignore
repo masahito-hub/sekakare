@@ -111,6 +111,9 @@ dist
 # Docusaurus cache and generated files
 .docusaurus
 
+# API configuration (contains sensitive keys)
+assets/js/config.js
+
 # Serverless directories
 .serverless/
 
