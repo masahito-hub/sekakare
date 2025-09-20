@@ -1,0 +1,37 @@
+name: Deploy to Xserver
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate config.js from template
+        run: |
+          # config.template.jsからconfig.jsを生成
+          cp assets/js/config.template.js assets/js/config.js
+
+          # GitHub SecretsのAPIキーを挿入
+          sed -i "s/YOUR_GOOGLE_PLACES_API_KEY_HERE/${{ secrets.GOOGLE_PLACES_API_KEY }}/g" assets/js/config.js
+
+          echo "✅ config.js generated with API key from GitHub Secrets"
+
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: /sekakare.life/public_html/
+          dangerous-clean-slate: true  # フルデプロイを強制
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            .github/**
+            assets/js/config.template.js
