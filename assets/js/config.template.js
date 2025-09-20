@@ -67,14 +67,18 @@ function validateApiKey() {
     console.log('- Current API_KEY length:', Config.API_KEY ? Config.API_KEY.length : 0);
     console.log('- Starts with:', Config.API_KEY ? Config.API_KEY.substring(0, 10) + '...' : 'undefined');
 
-    if (Config.API_KEY === 'YOUR_API_KEY_HERE') {
-        console.error('APIキーが設定されていません。Config.API_KEYを設定してください。');
-        console.error('GitHub ActionsのSecretsにGOOGLE_PLACES_API_KEYを設定し、デプロイを再実行してください。');
+    // APIキーが空またはundefinedの場合
+    if (!Config.API_KEY || Config.API_KEY.trim() === '') {
+        console.error('APIキーが空です。');
         return false;
     }
 
-    if (!Config.API_KEY || Config.API_KEY.trim() === '') {
-        console.error('APIキーが空です。');
+    // APIキーがプレースホルダーのままの場合（プレースホルダー文字列を動的に判定）
+    // この文字列自体もデプロイ時に置換されるため、置換後は常にfalseになる
+    const placeholder = 'YOUR_API' + '_KEY_HERE'; // 文字列を分割して置換を防ぐ
+    if (Config.API_KEY === placeholder) {
+        console.error('APIキーが設定されていません。Config.API_KEYを設定してください。');
+        console.error('GitHub ActionsのSecretsにGOOGLE_PLACES_API_KEYを設定し、デプロイを再実行してください。');
         return false;
     }
 
