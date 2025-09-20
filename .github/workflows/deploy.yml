@@ -17,7 +17,7 @@ jobs:
           cp assets/js/config.template.js assets/js/config.js
 
           # GitHub SecretsのAPIキーを挿入
-          sed -i "s/YOUR_GOOGLE_PLACES_API_KEY_HERE/${{ secrets.GOOGLE_PLACES_API_KEY }}/g" assets/js/config.js
+          sed -i "s/YOUR_API_KEY_HERE/${{ secrets.GOOGLE_PLACES_API_KEY }}/g" assets/js/config.js
 
           echo "✅ config.js generated with API key from GitHub Secrets"
 
