@@ -8,6 +8,7 @@ let markers = [];
 let heatmapCircles = [];
 let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievements) || '{}');
 let searchTimeout;
+let isManualSearch = false;  // 手動検索フラグを追加
 
 // 地図を初期化
 function initMap() {
@@ -31,8 +32,8 @@ function initMap() {
         // 検索ボックスを有効化
         document.getElementById('searchBox').disabled = false;
 
-        // 地図移動時の自動検索を無効化（店名検索専用）
-        // setupAutoSearch();
+        // 地図移動時の自動検索を設定（条件付き実行）
+        setupAutoSearch();
 
         // 初期表示時の自動検索を無効化（店名検索専用）
         // console.log('周辺のカレー店を検索します');
@@ -53,19 +54,26 @@ function initMap() {
     }
 }
 
-// 自動検索の設定（無効化 - 店名検索専用）
+// 自動検索の設定（条件付き実行）
 function setupAutoSearch() {
-    // 地図移動時の自動検索は無効化
-    // map.addListener('idle', () => {
-    //     clearTimeout(searchTimeout);
-    //     searchTimeout = setTimeout(() => {
-    //         const center = map.getCenter();
-    //         if (center) {
-    //             console.log('地図移動検出 - 周辺のカレー店を検索中...');
-    //             autoSearchCurryShops(center);
-    //         }
-    //     }, Config.settings.autoSearchDelay);
-    // });
+    // 地図移動時の自動検索（手動検索時は実行しない）
+    map.addListener('idle', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            // 手動検索フラグがtrueの場合は自動検索をスキップ
+            if (isManualSearch) {
+                console.log('手動検索のため自動検索をスキップ');
+                isManualSearch = false;  // フラグをリセット
+                return;
+            }
+
+            const center = map.getCenter();
+            if (center) {
+                console.log('地図移動検出 - 周辺のカレー店を検索中...');
+                autoSearchCurryShops(center);
+            }
+        }, Config.settings.autoSearchDelay);
+    });
 }
 
 // 地図移動時の自動検索関数（GAイベント付き）
@@ -132,6 +140,9 @@ function autoSearchCurryShops(location) {
 // 店名専用検索機能（GAイベント付き）
 function searchCurryByKeyword(keyword) {
     console.log('店名検索中:', keyword);
+
+    // 手動検索フラグを設定
+    isManualSearch = true;
 
     // Google Analytics カスタムイベント - 検索実行
     if (typeof gtag !== 'undefined') {
