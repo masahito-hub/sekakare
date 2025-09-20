@@ -15,43 +15,127 @@ function initMap() {
     console.log('地図を初期化しています...');
 
     try {
-        map = new google.maps.Map(document.getElementById('map'), {
-            zoom: Config.settings.defaultZoom,
-            center: Config.settings.defaultLocation,
-            styles: [
+        // デフォルトの中心座標（フォールバック用）
+        let initialCenter = Config.settings.defaultLocation;
+        let initialZoom = Config.settings.defaultZoom;
+
+        // 現在地を取得してから地図を初期化
+        if (navigator.geolocation) {
+            console.log('現在地を取得中...');
+            updateDebugInfo('<strong>📍 現在地を取得しています...</strong> 位置情報の使用を許可してください');
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    // 現在地取得成功
+                    console.log('現在地取得成功:', position.coords);
+                    initialCenter = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    initialZoom = 15;  // 現在地の場合はズームを調整
+                    updateDebugInfo('<strong>✅ 現在地を取得しました</strong> あなたの周辺のカレー店を検索できます');
+
+                    // 現在地を中心に地図を初期化
+                    createMap(initialCenter, initialZoom);
+
+                    // Google Analytics - 現在地取得成功イベント
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'geolocation_success', {
+                            'event_category': 'location',
+                            'latitude': position.coords.latitude.toFixed(4),
+                            'longitude': position.coords.longitude.toFixed(4),
+                            'event_label': 'current_location',
+                            'custom_parameter_1': 'geolocation'
+                        });
+                    }
+                },
+                (error) => {
+                    // 現在地取得失敗
+                    console.error('現在地取得エラー:', error);
+                    let errorMessage = '';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = '位置情報の使用が許可されませんでした';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = '位置情報が利用できません';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = '位置情報の取得がタイムアウトしました';
+                            break;
+                        default:
+                            errorMessage = '位置情報の取得に失敗しました';
+                    }
+                    updateDebugInfo(`<strong>⚠️ ${errorMessage}</strong> デフォルト位置で地図を表示します`);
+
+                    // フォールバック: デフォルト位置で地図を初期化
+                    createMap(initialCenter, initialZoom);
+
+                    // Google Analytics - 現在地取得エラーイベント
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'geolocation_error', {
+                            'event_category': 'error',
+                            'error_code': error.code,
+                            'error_message': errorMessage,
+                            'event_label': 'geolocation_failed',
+                            'custom_parameter_1': 'geolocation_error'
+                        });
+                    }
+                },
                 {
-                    "featureType": "poi",
-                    "elementType": "labels.text",
-                    "stylers": [{ "visibility": "off" }]
+                    enableHighAccuracy: true,  // 高精度位置情報を要求
+                    timeout: 10000,  // 10秒でタイムアウト
+                    maximumAge: 0  // キャッシュを使用しない
                 }
-            ]
-        });
-
-        console.log('地図が作成されました');
-
-        // 検索ボックスを有効化
-        document.getElementById('searchBox').disabled = false;
-
-        // 地図移動時の自動検索を設定（条件付き実行）
-        setupAutoSearch();
-
-        // 初期表示時の自動検索を無効化（店名検索専用）
-        // console.log('周辺のカレー店を検索します');
-        // autoSearchCurryShops(Config.settings.defaultLocation);
-
-        // ヒートマップを表示
-        displayHeatmap();
-
-        // ログを表示
-        displayLogs();
-
-        // 実績システムを初期化
-        initAchievements();
+            );
+        } else {
+            // Geolocation API非対応
+            console.log('Geolocation APIが利用できません');
+            updateDebugInfo('<strong>⚠️ お使いのブラウザは位置情報に対応していません</strong> デフォルト位置で地図を表示します');
+            createMap(initialCenter, initialZoom);
+        }
 
     } catch (error) {
         console.error('地図初期化エラー:', error);
         updateDebugInfo('❌ 地図の初期化でエラーが発生しました');
     }
+}
+
+// 地図オブジェクトを作成
+function createMap(center, zoom) {
+    map = new google.maps.Map(document.getElementById('map'), {
+        zoom: zoom,
+        center: center,
+        gestureHandling: 'greedy',  // 1本指でのパン操作を可能にする
+        styles: [
+            {
+                "featureType": "poi",
+                "elementType": "labels.text",
+                "stylers": [{ "visibility": "off" }]
+            }
+        ]
+    });
+
+    console.log('地図が作成されました');
+
+    // 検索ボックスを有効化
+    document.getElementById('searchBox').disabled = false;
+
+    // 地図移動時の自動検索を設定（条件付き実行）
+    setupAutoSearch();
+
+    // 初期表示時の自動検索を無効化（店名検索専用）
+    // console.log('周辺のカレー店を検索します');
+    // autoSearchCurryShops(Config.settings.defaultLocation);
+
+    // ヒートマップを表示
+    displayHeatmap();
+
+    // ログを表示
+    displayLogs();
+
+    // 実績システムを初期化
+    initAchievements();
 }
 
 // 自動検索の設定（条件付き実行）
