@@ -199,9 +199,24 @@ body {
     }
 }
 
-.marker-content {
+/* カスタムマーカースタイル */
+.custom-marker {
+    cursor: pointer;
+    position: relative;
+}
+
+/* アニメーションラッパー */
+.marker-animation-wrapper {
     animation: markerScaleIn 0.3s ease-out forwards;
     transform-origin: center center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* アニメーション完了後も表示を維持 */
+.marker-animation-wrapper svg {
+    pointer-events: none;
 }
 
 @media (max-width: 480px) {
