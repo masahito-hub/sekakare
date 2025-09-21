@@ -329,12 +329,9 @@ function createNewMarker(place) {
         const animationWrapper = document.createElement('div');
         animationWrapper.className = 'marker-animation-wrapper';
 
-        // SVGアイコンを作成
+        // 絵文字のみを表示（円なし）
         animationWrapper.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" style="display: block;">
-                <circle cx="20" cy="20" r="18" fill="#ff8c00" stroke="#ffffff" stroke-width="3"/>
-                <text x="20" y="26" font-family="Arial, sans-serif" font-size="18" text-anchor="middle" fill="#ffffff">🍛</text>
-            </svg>
+            <div style="font-size: 30px; line-height: 1;">🍛</div>
         `;
 
         markerContent.appendChild(animationWrapper);
@@ -377,7 +374,7 @@ function createSimpleMarker(place) {
 
     const animationWrapper = document.createElement('div');
     animationWrapper.className = 'marker-animation-wrapper';
-    animationWrapper.style.cssText = 'width: 30px; height: 30px; background: #ff8c00; border: 3px solid #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px;';
+    animationWrapper.style.cssText = 'display: flex; align-items: center; justify-content: center; font-size: 30px; line-height: 1;';
     animationWrapper.textContent = '🍛';
 
     markerContent.appendChild(animationWrapper);
