@@ -28,7 +28,7 @@ const Config = {
         defaultZoom: 15,
 
         // 検索結果の最大表示数
-        maxSearchResults: 20,
+        maxSearchResults: 30,
 
         // 自動検索の遅延時間（ミリ秒）
         autoSearchDelay: 500,

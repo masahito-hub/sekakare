@@ -188,31 +188,46 @@ function autoSearchCurryShops(location) {
         });
     }
 
+    // 評価を含めて取得するため、ratingフィールドを追加
     const request = {
         textQuery: 'カレー',
-        fields: ['displayName', 'location', 'businessStatus', 'formattedAddress'],
+        fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating'],
         locationBias: { lat: lat, lng: lng },
-        maxResultCount: Config.settings.maxSearchResults
+        maxResultCount: 50  // 多めに取得してから評価でソート
     };
 
     google.maps.places.Place.searchByText(request).then((response) => {
         if (response.places && response.places.length > 0) {
             clearMarkers();
-            response.places.forEach(place => createNewMarker(place));
+
+            // 評価でソートして上位30件を取得
+            let placesToShow = response.places;
+            if (placesToShow.length > Config.settings.maxSearchResults) {
+                // 評価でソート（評価がない場合は0として扱う）
+                placesToShow = placesToShow.sort((a, b) => {
+                    const ratingA = a.rating || 0;
+                    const ratingB = b.rating || 0;
+                    return ratingB - ratingA;  // 降順
+                });
+                // 上位30件のみ取得
+                placesToShow = placesToShow.slice(0, Config.settings.maxSearchResults);
+            }
+
+            placesToShow.forEach(place => createNewMarker(place));
 
             // Google Analytics - 自動検索成功イベント
             if (typeof gtag !== 'undefined') {
                 gtag('event', 'auto_search_success', {
                     'event_category': 'search_result',
-                    'result_count': response.places.length,
+                    'result_count': placesToShow.length,
                     'latitude': lat.toFixed(4),
                     'longitude': lng.toFixed(4),
-                    'event_label': `自動検索 - ${response.places.length}件`,
+                    'event_label': `自動検索 - ${placesToShow.length}件`,
                     'custom_parameter_1': 'auto_search'
                 });
             }
 
-            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${response.places.length}件のカレー店を発見`);
+            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${placesToShow.length}件のカレー店を表示中${response.places.length > Config.settings.maxSearchResults ? `（評価上位${Config.settings.maxSearchResults}件）` : ''}`);
         } else {
             updateDebugInfo('<strong>⚠️ この周辺にはカレー店が見つかりませんでした</strong> 地図を移動してみてください');
         }
@@ -321,6 +336,10 @@ function createNewMarker(place) {
     console.log('マーカーを作成中:', place.displayName);
 
     try {
+        // 訪問済みかチェック
+        const placeId = place.id || 'new_api_' + Date.now() + '_' + Math.random();
+        const isVisited = curryLogs.some(log => log.id === placeId);
+
         // Advanced Markerを使用
         const markerContent = document.createElement('div');
         markerContent.className = 'custom-marker';
@@ -329,9 +348,12 @@ function createNewMarker(place) {
         const animationWrapper = document.createElement('div');
         animationWrapper.className = 'marker-animation-wrapper';
 
-        // 絵文字のみを表示（円なし）
+        // 訪問済みは✅、未訪問は🍛アイコンで表示
+        const icon = isVisited ? '✅' : '🍛';
+        const size = isVisited ? '28px' : '30px';  // 訪問済みは少し小さく
+
         animationWrapper.innerHTML = `
-            <div style="font-size: 30px; line-height: 1;">🍛</div>
+            <div style="font-size: ${size}; line-height: 1;">${icon}</div>
         `;
 
         markerContent.appendChild(animationWrapper);
@@ -339,15 +361,16 @@ function createNewMarker(place) {
         const marker = new google.maps.marker.AdvancedMarkerElement({
             map: map,
             position: place.location,
-            title: place.displayName,
+            title: place.displayName + (isVisited ? ' (訪問済み)' : ''),
             content: markerContent
         });
 
         const legacyPlace = {
             name: place.displayName,
-            place_id: place.id || 'new_api_' + Date.now() + '_' + Math.random(),
+            place_id: placeId,
             geometry: { location: place.location },
-            vicinity: place.formattedAddress || '住所不明'
+            vicinity: place.formattedAddress || '住所不明',
+            rating: place.rating || null
         };
 
         marker.addListener('click', () => {
@@ -368,29 +391,39 @@ function createNewMarker(place) {
 function createSimpleMarker(place) {
     console.log('フォールバックマーカーを作成:', place.displayName);
 
+    // 訪問済みかチェック
+    const placeId = place.id || 'simple_' + Date.now();
+    const isVisited = curryLogs.some(log => log.id === placeId);
+
     // フォールバックでも可能な限りAdvanced Markerを使用
     const markerContent = document.createElement('div');
     markerContent.className = 'custom-marker';
 
     const animationWrapper = document.createElement('div');
     animationWrapper.className = 'marker-animation-wrapper';
-    animationWrapper.style.cssText = 'display: flex; align-items: center; justify-content: center; font-size: 30px; line-height: 1;';
-    animationWrapper.textContent = '🍛';
+
+    // 訪問済みは✅、未訪問は🍛アイコンで表示
+    const icon = isVisited ? '✅' : '🍛';
+    const size = isVisited ? '28px' : '30px';
+
+    animationWrapper.style.cssText = `display: flex; align-items: center; justify-content: center; font-size: ${size}; line-height: 1;`;
+    animationWrapper.textContent = icon;
 
     markerContent.appendChild(animationWrapper);
 
     const marker = new google.maps.marker.AdvancedMarkerElement({
         map: map,
         position: place.location,
-        title: place.displayName,
+        title: place.displayName + (isVisited ? ' (訪問済み)' : ''),
         content: markerContent
     });
 
     const legacyPlace = {
         name: place.displayName,
-        place_id: place.id || 'simple_' + Date.now(),
+        place_id: placeId,
         geometry: { location: place.location },
-        vicinity: place.formattedAddress || '住所不明'
+        vicinity: place.formattedAddress || '住所不明',
+        rating: place.rating || null
     };
 
     marker.addListener('click', () => {
@@ -411,8 +444,33 @@ function clearMarkers() {
 function showPopup(place) {
     console.log('ポップアップを表示:', place);
     try {
-        document.getElementById('popupTitle').textContent = place.name;
+        // 訪問済みかチェック
+        const isVisited = curryLogs.some(log => log.id === place.place_id);
+
+        // タイトルに訪問済み表示を追加
+        let titleText = place.name;
+        if (isVisited) {
+            titleText += ' ✅ (訪問済み)';
+        }
+        if (place.rating) {
+            titleText += ` ⭐${place.rating}`;
+        }
+
+        document.getElementById('popupTitle').textContent = titleText;
         document.getElementById('popupAddress').textContent = place.vicinity;
+
+        // 訪問済みの場合はボタンを無効化または変更
+        const btnAte = document.getElementById('btnAte');
+        if (isVisited) {
+            btnAte.textContent = '✅ 訪問済み';
+            btnAte.disabled = true;
+            btnAte.style.opacity = '0.6';
+        } else {
+            btnAte.textContent = '🍛 食べた！';
+            btnAte.disabled = false;
+            btnAte.style.opacity = '1';
+        }
+
         document.getElementById('popupOverlay').style.display = 'block';
     } catch (error) {
         console.error('ポップアップ表示エラー:', error);
