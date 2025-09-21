@@ -477,21 +477,33 @@ function displayHeatmap() {
 
     // 各場所に円を表示
     Object.values(heatmapData).forEach(data => {
-        const opacity = Math.min(Config.settings.heatmap.minOpacity + (data.count * 0.15), Config.settings.heatmap.maxOpacity);
-        const radius = Config.settings.heatmap.baseRadius + (data.count * Config.settings.heatmap.radiusIncrement);
+        const baseOpacity = Math.min(Config.settings.heatmap.minOpacity + (data.count * 0.15), Config.settings.heatmap.maxOpacity);
+        const baseRadius = Config.settings.heatmap.baseRadius + (data.count * Config.settings.heatmap.radiusIncrement);
 
-        const circle = new google.maps.Circle({
-            strokeColor: '#ff8c00',
-            strokeOpacity: 0.8,
-            strokeWeight: 2,
-            fillColor: '#ff8c00',
-            fillOpacity: opacity,
-            map: map,
-            center: { lat: data.lat, lng: data.lng },
-            radius: radius
-        });
+        // グラデーション効果のために複数の同心円を作成
+        const gradientLayers = 8; // グラデーションの層数
+        for (let i = 0; i < gradientLayers; i++) {
+            const layerRatio = (gradientLayers - i) / gradientLayers;
+            const layerRadius = baseRadius * layerRatio;
 
-        heatmapCircles.push(circle);
+            // 中心から外側に向かって透明度を下げる
+            // 中心部は濃く、外縁は透明に近づく
+            const layerOpacity = baseOpacity * Math.pow(layerRatio, 2.5); // 指数関数でより自然なフェードアウト
+
+            const circle = new google.maps.Circle({
+                strokeColor: 'transparent', // 境界線を透明に
+                strokeOpacity: 0,
+                strokeWeight: 0,
+                fillColor: '#ff8c00',
+                fillOpacity: layerOpacity,
+                map: map,
+                center: { lat: data.lat, lng: data.lng },
+                radius: layerRadius,
+                clickable: false // クリックイベントを無効化
+            });
+
+            heatmapCircles.push(circle);
+        }
     });
 
     console.log(`ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
