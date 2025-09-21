@@ -162,7 +162,7 @@ function setupAutoSearch() {
 }
 
 // 地図移動時の自動検索関数（GAイベント付き）
-function autoSearchCurryShops(location) {
+async function autoSearchCurryShops(location) {
     updateDebugInfo('<strong>🗺️ 地図移動検出</strong> この周辺のカレー店を自動検索中...');
 
     // locationオブジェクトから正しい座標を取得
@@ -188,20 +188,51 @@ function autoSearchCurryShops(location) {
         });
     }
 
-    // 評価を含めて取得するため、ratingフィールドを追加
-    const request = {
-        textQuery: 'カレー',
-        fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating'],
-        locationBias: { lat: lat, lng: lng },
-        maxResultCount: 50  // 多めに取得してから評価でソート
-    };
+    try {
+        // Places API (New)は最大20件までしか返さないため、ページネーションで追加取得
+        let allPlaces = [];
+        let nextPageToken = null;
+        let pageCount = 0;
+        const maxPages = 2; // 2ページ分（最大40件）取得して30件を選ぶ
 
-    google.maps.places.Place.searchByText(request).then((response) => {
-        if (response.places && response.places.length > 0) {
+        do {
+            console.log(`ページ${pageCount + 1}を取得中...`);
+
+            // 評価を含めて取得するため、ratingフィールドを追加
+            const request = {
+                textQuery: 'カレー',
+                fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id'],
+                locationBias: { lat: lat, lng: lng },
+                maxResultCount: 20,  // APIの最大値は20
+                pageToken: nextPageToken
+            };
+
+            const response = await google.maps.places.Place.searchByText(request);
+
+            if (response.places && response.places.length > 0) {
+                console.log(`ページ${pageCount + 1}: ${response.places.length}件取得`);
+                allPlaces = allPlaces.concat(response.places);
+            }
+
+            // nextPageTokenがあれば次のページを取得
+            nextPageToken = response.nextPageToken || null;
+            pageCount++;
+
+            // 必要な件数が集まったら終了
+            if (allPlaces.length >= Config.settings.maxSearchResults) {
+                console.log(`${Config.settings.maxSearchResults}件以上集まったので取得終了`);
+                break;
+            }
+
+        } while (nextPageToken && pageCount < maxPages);
+
+        console.log(`合計${allPlaces.length}件のカレー店を取得`);
+
+        if (allPlaces.length > 0) {
             clearMarkers();
 
             // 評価でソートして上位30件を取得
-            let placesToShow = response.places;
+            let placesToShow = allPlaces;
             if (placesToShow.length > Config.settings.maxSearchResults) {
                 // 評価でソート（評価がない場合は0として扱う）
                 placesToShow = placesToShow.sort((a, b) => {
@@ -211,6 +242,7 @@ function autoSearchCurryShops(location) {
                 });
                 // 上位30件のみ取得
                 placesToShow = placesToShow.slice(0, Config.settings.maxSearchResults);
+                console.log(`評価順でソート後、上位${Config.settings.maxSearchResults}件を表示`);
             }
 
             placesToShow.forEach(place => createNewMarker(place));
@@ -227,14 +259,14 @@ function autoSearchCurryShops(location) {
                 });
             }
 
-            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${placesToShow.length}件のカレー店を表示中${response.places.length > Config.settings.maxSearchResults ? `（評価上位${Config.settings.maxSearchResults}件）` : ''}`);
+            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${placesToShow.length}件のカレー店を表示中${allPlaces.length > Config.settings.maxSearchResults ? `（評価上位${Config.settings.maxSearchResults}件）` : ''} [取得総数: ${allPlaces.length}件]`);
         } else {
             updateDebugInfo('<strong>⚠️ この周辺にはカレー店が見つかりませんでした</strong> 地図を移動してみてください');
         }
-    }).catch((error) => {
+    } catch (error) {
         console.error('自動検索エラー:', error);
         updateDebugInfo(`<strong>❌ 自動検索エラー:</strong> ${error.message}`);
-    });
+    }
 }
 
 // 店名専用検索機能（GAイベント付き）
