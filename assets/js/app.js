@@ -204,64 +204,43 @@ async function autoSearchCurryShops(location) {
     }
 
     try {
-        // Places API (New)は最大20件までしか返さないため、ページネーションで追加取得
-        let allPlaces = [];
-        let nextPageToken = null;
-        let pageCount = 0;
-        const maxPages = 2; // 2ページ分（最大40件）取得して30件を選ぶ
+        // Places API (New)は最大20件まで、30件取得にはmaxResultCountの調整が必要
+        console.log(`検索中... (座標: ${lat}, ${lng}, 範囲: ${searchRadius}m)`);
 
-        do {
-            console.log(`ページ${pageCount + 1}を取得中...`);
+        // 評価を含めて取得するため、ratingフィールドを追加
+        // locationBiasをcircleパラメータで指定して検索範囲を設定
+        const request = {
+            textQuery: 'カレー',
+            fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id'],
+            locationBias: {
+                circle: {
+                    center: { lat: lat, lng: lng },
+                    radius: searchRadius  // メートル単位で指定
+                }
+            },
+            maxResultCount: 20  // APIの最大値は20
+        };
 
-            // 評価を含めて取得するため、ratingフィールドを追加
-            // locationBiasをcircleパラメータで指定して検索範囲を設定
-            const request = {
-                textQuery: 'カレー',
-                fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id'],
-                locationBias: {
-                    circle: {
-                        center: { lat: lat, lng: lng },
-                        radius: searchRadius  // メートル単位で指定
-                    }
-                },
-                maxResultCount: 20,  // APIの最大値は20
-                pageToken: nextPageToken
-            };
+        // searchByTextはPromiseを返すので、awaitを使用して同期的に処理
+        const { places } = await google.maps.places.Place.searchByText(request);
 
-            const response = await google.maps.places.Place.searchByText(request);
+        console.log(`${places ? places.length : 0}件のカレー店を取得`);
 
-            if (response.places && response.places.length > 0) {
-                console.log(`ページ${pageCount + 1}: ${response.places.length}件取得`);
-                allPlaces = allPlaces.concat(response.places);
-            }
-
-            // nextPageTokenがあれば次のページを取得
-            nextPageToken = response.nextPageToken || null;
-            pageCount++;
-
-            // 必要な件数が集まったら終了
-            if (allPlaces.length >= Config.settings.maxSearchResults) {
-                console.log(`${Config.settings.maxSearchResults}件以上集まったので取得終了`);
-                break;
-            }
-
-        } while (nextPageToken && pageCount < maxPages);
-
-        console.log(`合計${allPlaces.length}件のカレー店を取得`);
-
-        if (allPlaces.length > 0) {
+        if (places && places.length > 0) {
             clearMarkers();
 
-            // 評価でソートして上位30件を取得
-            let placesToShow = allPlaces;
+            // 評価でソートして表示件数を制限
+            let placesToShow = places;
+
+            // 評価でソート（評価がない場合は0として扱う）
+            placesToShow = placesToShow.sort((a, b) => {
+                const ratingA = a.rating || 0;
+                const ratingB = b.rating || 0;
+                return ratingB - ratingA;  // 降順
+            });
+
+            // 設定された表示件数で切り捨て
             if (placesToShow.length > Config.settings.maxSearchResults) {
-                // 評価でソート（評価がない場合は0として扱う）
-                placesToShow = placesToShow.sort((a, b) => {
-                    const ratingA = a.rating || 0;
-                    const ratingB = b.rating || 0;
-                    return ratingB - ratingA;  // 降順
-                });
-                // 上位30件のみ取得
                 placesToShow = placesToShow.slice(0, Config.settings.maxSearchResults);
                 console.log(`評価順でソート後、上位${Config.settings.maxSearchResults}件を表示`);
             }
@@ -280,7 +259,7 @@ async function autoSearchCurryShops(location) {
                 });
             }
 
-            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${placesToShow.length}件のカレー店を表示中${allPlaces.length > Config.settings.maxSearchResults ? `（評価上位${Config.settings.maxSearchResults}件）` : ''} [取得総数: ${allPlaces.length}件]`);
+            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${placesToShow.length}件のカレー店を表示中 [取得総数: ${places.length}件]`);
         } else {
             updateDebugInfo('<strong>⚠️ この周辺にはカレー店が見つかりませんでした</strong> 地図を移動してみてください');
         }
