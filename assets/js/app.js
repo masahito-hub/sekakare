@@ -177,6 +177,21 @@ async function autoSearchCurryShops(location) {
 
     console.log('検索座標:', lat, lng);
 
+    // ズームレベルに応じて検索半径を動的に設定
+    const zoomLevel = map.getZoom();
+    let searchRadius;
+    if (zoomLevel >= 15) {
+        searchRadius = 1000;  // 詳細表示: 1km
+    } else if (zoomLevel >= 12) {
+        searchRadius = 5000;  // 中域表示: 5km
+    } else if (zoomLevel >= 10) {
+        searchRadius = 20000; // 広域表示: 20km
+    } else {
+        searchRadius = 50000; // 超広域: 50km
+    }
+
+    console.log(`ズームレベル: ${zoomLevel}, 検索範囲: ${searchRadius}m`);
+
     // Google Analytics - 地図移動イベント
     if (typeof gtag !== 'undefined') {
         gtag('event', 'map_moved', {
@@ -199,10 +214,16 @@ async function autoSearchCurryShops(location) {
             console.log(`ページ${pageCount + 1}を取得中...`);
 
             // 評価を含めて取得するため、ratingフィールドを追加
+            // locationBiasをcircleパラメータで指定して検索範囲を設定
             const request = {
                 textQuery: 'カレー',
                 fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id'],
-                locationBias: { lat: lat, lng: lng },
+                locationBias: {
+                    circle: {
+                        center: { lat: lat, lng: lng },
+                        radius: searchRadius  // メートル単位で指定
+                    }
+                },
                 maxResultCount: 20,  // APIの最大値は20
                 pageToken: nextPageToken
             };
