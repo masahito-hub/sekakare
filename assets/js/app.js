@@ -177,21 +177,12 @@ async function autoSearchCurryShops(location) {
 
     console.log('検索座標:', lat, lng);
 
-    // ズームレベルに応じて検索半径を動的に設定
+    // 固定半径1kmを使用（シンプルな実装に戻す）
+    const searchRadius = 1000;  // 1km固定
     const zoomLevel = map.getZoom();
-    let searchRadius;
-    if (zoomLevel >= 15) {
-        searchRadius = 1000;  // 詳細表示: 1km
-    } else if (zoomLevel >= 12) {
-        searchRadius = 5000;  // 中域表示: 5km
-    } else if (zoomLevel >= 10) {
-        searchRadius = 20000; // 広域表示: 20km
-    } else {
-        searchRadius = 50000; // 超広域: 50km (API制限)
-    }
 
     // デバッグ情報を詳細に出力
-    console.log(`[検索デバッグ] ズームレベル: ${zoomLevel}, 検索範囲: ${searchRadius}m`);
+    console.log(`[検索デバッグ] ズームレベル: ${zoomLevel}, 検索範囲: ${searchRadius}m (固定)`);
     console.log(`[検索デバッグ] 中心座標: lat=${lat.toFixed(6)}, lng=${lng.toFixed(6)}`)
 
     // Google Analytics - 地図移動イベント
@@ -207,19 +198,13 @@ async function autoSearchCurryShops(location) {
 
     try {
         // Places API (New)は最大20件まで
-        console.log(`[API呼び出し] 検索中... (座標: ${lat}, ${lng}, 範囲: ${searchRadius}m)`);
+        console.log(`[API呼び出し] 検索中... (座標: ${lat}, ${lng})`);
 
-        // 従来のlocation + radiusパラメータ形式を使用
-        // locationBiasの代わりにlocationRestrictionを使用
+        // シンプルな実装に戻す - locationBiasを使用
         const request = {
             textQuery: 'カレー',
             fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id'],
-            locationRestriction: {
-                circle: {
-                    center: { latitude: lat, longitude: lng },
-                    radius: searchRadius
-                }
-            },
+            locationBias: { lat: lat, lng: lng },  // シンプルな座標指定
             maxResultCount: 20  // APIの最大値は20
         };
 
@@ -264,7 +249,7 @@ async function autoSearchCurryShops(location) {
                 });
             }
 
-            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${placesToShow.length}件のカレー店を表示中 [取得総数: ${places.length}件]`);
+            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${placesToShow.length}件のカレー店を表示中`);
         } else {
             updateDebugInfo('<strong>⚠️ この周辺にはカレー店が見つかりませんでした</strong> 地図を移動してみてください');
         }
@@ -274,11 +259,6 @@ async function autoSearchCurryShops(location) {
 
         // エラーメッセージを詳細に表示
         let errorMsg = error.message;
-        if (error.message.includes('locationBias') || error.message.includes('locationRestriction')) {
-            errorMsg += ' (検索パラメータの形式エラー)';
-            console.error('[エラー] 検索パラメータ:', JSON.stringify(request, null, 2));
-        }
-
         updateDebugInfo(`<strong>❌ 自動検索エラー:</strong> ${errorMsg}`);
     }
 }
