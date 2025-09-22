@@ -208,16 +208,11 @@ async function autoSearchCurryShops(location) {
         console.log(`検索中... (座標: ${lat}, ${lng}, 範囲: ${searchRadius}m)`);
 
         // 評価を含めて取得するため、ratingフィールドを追加
-        // locationBiasをcircleパラメータで指定して検索範囲を設定
+        // locationBiasを文字列形式で指定（circle:radius@lat,lng）
         const request = {
             textQuery: 'カレー',
             fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id'],
-            locationBias: {
-                circle: {
-                    center: { lat: lat, lng: lng },
-                    radius: searchRadius  // メートル単位で指定
-                }
-            },
+            locationBias: `circle:${searchRadius}@${lat},${lng}`,
             maxResultCount: 20  // APIの最大値は20
         };
 
