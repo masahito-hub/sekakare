@@ -4,14 +4,20 @@
 # =================================================================
 
 # -----------------------------------------------------------------
-# 1. HTTPS強制リダイレクト (HTTP → HTTPS)
+# 1. HTTPS強制リダイレクト (HTTP → HTTPS) - Xserver対応版
 # -----------------------------------------------------------------
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # HTTPSでない場合はHTTPSにリダイレクト
-    RewriteCond %{HTTPS} off
-    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    # Xserver環境用の複数条件でHTTPSチェック
+    # X-Forwarded-Protoヘッダーをチェック（プロキシ経由の場合）
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC,OR]
+    # HTTPSサーバー変数をチェック
+    RewriteCond %{HTTPS} off [OR]
+    # サーバーポートをチェック（HTTP:80の場合）
+    RewriteCond %{SERVER_PORT} ^80$
+    # 上記のいずれかに該当する場合はHTTPSにリダイレクト
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
 
     # www付きURLを www無しにリダイレクト（オプション）
     # RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
@@ -37,11 +43,11 @@
     # HSTS (HTTP Strict Transport Security) - 1年間
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 
-    # Content Security Policy (基本設定 + Google Maps API対応)
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://maps.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com; frame-src 'self' https://www.google.com https://maps.google.com"
+    # Content Security Policy (基本設定 + Google Maps API + Google Analytics対応)
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://maps.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob: https://www.google-analytics.com https://www.googletagmanager.com; connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://www.google-analytics.com https://www.googletagmanager.com https://region1.google-analytics.com; frame-src 'self' https://www.google.com https://maps.google.com"
 
-    # 権限ポリシー（旧Feature-Policy）
-    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+    # 権限ポリシー（旧Feature-Policy） - geolocationはセルフドメインで許可
+    Header always set Permissions-Policy "geolocation=(self), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
 </IfModule>
 
 # -----------------------------------------------------------------
