@@ -177,12 +177,21 @@ async function autoSearchCurryShops(location) {
 
     console.log('検索座標:', lat, lng);
 
-    // 固定半径1kmを使用（シンプルな実装に戻す）
-    const searchRadius = 1000;  // 1km固定
+    // ズームレベルに基づく動的な検索半径
     const zoomLevel = map.getZoom();
+    let searchRadius;
+    if (zoomLevel >= 15) {
+        searchRadius = 1000;  // 1km
+    } else if (zoomLevel >= 12) {
+        searchRadius = 3000;  // 3km
+    } else if (zoomLevel >= 10) {
+        searchRadius = 10000;  // 10km
+    } else {
+        searchRadius = 20000;  // 20km
+    }
 
     // デバッグ情報を詳細に出力
-    console.log(`[検索デバッグ] ズームレベル: ${zoomLevel}, 検索範囲: ${searchRadius}m (固定)`);
+    console.log(`[検索デバッグ] ズームレベル: ${zoomLevel}, 検索範囲: ${searchRadius}m`);
     console.log(`[検索デバッグ] 中心座標: lat=${lat.toFixed(6)}, lng=${lng.toFixed(6)}`)
 
     // Google Analytics - 地図移動イベント
@@ -197,39 +206,71 @@ async function autoSearchCurryShops(location) {
     }
 
     try {
-        // Places API (New)は最大20件まで
+        // Places API (New)でページネーション実装 - 最大30件取得
         console.log(`[API呼び出し] 検索中... (座標: ${lat}, ${lng})`);
 
-        // シンプルな実装に戻す - locationBiasを使用
-        const request = {
+        // 1回目のリクエスト: 最初の20件を取得
+        const firstRequest = {
             textQuery: 'カレー',
             fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id'],
-            locationBias: { lat: lat, lng: lng },  // シンプルな座標指定
+            locationBias: {
+                circle: {
+                    center: { lat: lat, lng: lng },
+                    radius: searchRadius
+                }
+            },
             maxResultCount: 20  // APIの最大値は20
         };
 
         // searchByTextはPromiseを返すので、awaitを使用して同期的に処理
-        const { places } = await google.maps.places.Place.searchByText(request);
+        const firstResponse = await google.maps.places.Place.searchByText(firstRequest);
+        let allPlaces = firstResponse.places || [];
 
-        console.log(`[検索結果] ${places ? places.length : 0}件のカレー店を取得`);
-        if (places && places.length > 0) {
-            console.log(`[検索結果] 最初の店舗: ${places[0].displayName}, 評価: ${places[0].rating || 'なし'}`);
+        console.log(`[検索結果] 1回目: ${allPlaces.length}件のカレー店を取得`);
+
+        // ページネーションで追加10件を取得（Config.settings.maxSearchResultsが20を超える場合）
+        if (Config.settings.maxSearchResults > 20 && allPlaces.length === 20 && firstResponse.pageToken) {
+            console.log('[API呼び出し] ページネーションで追加取得中...');
+
+            // 次のページをリクエスト
+            const secondRequest = {
+                textQuery: 'カレー',
+                fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id'],
+                locationBias: {
+                    circle: {
+                        center: { lat: lat, lng: lng },
+                        radius: searchRadius
+                    }
+                },
+                maxResultCount: 10,  // 追加で10件取得
+                pageToken: firstResponse.pageToken
+            };
+
+            try {
+                const secondResponse = await google.maps.places.Place.searchByText(secondRequest);
+                if (secondResponse.places) {
+                    allPlaces = allPlaces.concat(secondResponse.places);
+                    console.log(`[検索結果] 2回目: ${secondResponse.places.length}件追加 (合計${allPlaces.length}件)`);
+                }
+            } catch (pageError) {
+                console.error('[エラー] ページネーションエラー:', pageError);
+                // ページネーションエラーは無視して、最初の20件で処理を続行
+            }
         }
 
-        if (places && places.length > 0) {
+        if (allPlaces.length > 0) {
+            console.log(`[検索結果] 最初の店舗: ${allPlaces[0].displayName}, 評価: ${allPlaces[0].rating || 'なし'}`);
+
             clearMarkers();
 
-            // 評価でソートして表示件数を制限
-            let placesToShow = places;
-
             // 評価でソート（評価がない場合は0として扱う）
-            placesToShow = placesToShow.sort((a, b) => {
+            let placesToShow = allPlaces.sort((a, b) => {
                 const ratingA = a.rating || 0;
                 const ratingB = b.rating || 0;
                 return ratingB - ratingA;  // 降順
             });
 
-            // 設定された表示件数で切り捨て
+            // 設定された表示件数で切り捨て（30件）
             if (placesToShow.length > Config.settings.maxSearchResults) {
                 placesToShow = placesToShow.slice(0, Config.settings.maxSearchResults);
                 console.log(`評価順でソート後、上位${Config.settings.maxSearchResults}件を表示`);

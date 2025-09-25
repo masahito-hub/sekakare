@@ -27,8 +27,8 @@ const Config = {
         // 地図のデフォルトズームレベル
         defaultZoom: 15,
 
-        // 検索結果の最大表示数（API制限により最大20）
-        maxSearchResults: 20,
+        // 検索結果の最大表示数（ページネーションで30件取得）
+        maxSearchResults: 30,
 
         // 自動検索の遅延時間（ミリ秒）
         autoSearchDelay: 500,
