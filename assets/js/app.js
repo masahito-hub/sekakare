@@ -177,12 +177,22 @@ async function autoSearchCurryShops(location) {
 
     console.log('検索座標:', lat, lng);
 
-    // 固定半径1kmを使用（シンプルな実装に戻す）
-    const searchRadius = 1000;  // 1km固定
+    // ズームレベルに応じた動的検索半径を実装
     const zoomLevel = map.getZoom();
+    let searchRadius;
+
+    if (zoomLevel >= 15) {
+        searchRadius = 1000;  // 1km
+    } else if (zoomLevel >= 12 && zoomLevel <= 14) {
+        searchRadius = 3000;  // 3km
+    } else if (zoomLevel >= 10 && zoomLevel <= 11) {
+        searchRadius = 10000;  // 10km
+    } else {
+        searchRadius = 20000;  // 20km
+    }
 
     // デバッグ情報を詳細に出力
-    console.log(`[検索デバッグ] ズームレベル: ${zoomLevel}, 検索範囲: ${searchRadius}m (固定)`);
+    console.log(`[検索デバッグ] ズームレベル: ${zoomLevel}, 検索範囲: ${searchRadius}m (動的)`);
     console.log(`[検索デバッグ] 中心座標: lat=${lat.toFixed(6)}, lng=${lng.toFixed(6)}`)
 
     // Google Analytics - 地図移動イベント
@@ -197,21 +207,21 @@ async function autoSearchCurryShops(location) {
     }
 
     try {
-        // Places API (New)は最大20件まで
-        console.log(`[API呼び出し] 検索中... (座標: ${lat}, ${lng})`);
+        // Places API (New)で30件取得を試みる（APIが20件に制限する可能性あり）
+        console.log(`[API呼び出し] 検索中... (座標: ${lat}, ${lng}, 半径: ${searchRadius}m)`);
 
-        // シンプルな実装に戻す - locationBiasを使用
+        // シンプルな座標形式のlocationBiasを使用
         const request = {
             textQuery: 'カレー',
             fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id'],
             locationBias: { lat: lat, lng: lng },  // シンプルな座標指定
-            maxResultCount: 20  // APIの最大値は20
+            maxResultCount: 30  // 30件を要求（APIは20件に制限する可能性あり）
         };
 
         // searchByTextはPromiseを返すので、awaitを使用して同期的に処理
         const { places } = await google.maps.places.Place.searchByText(request);
 
-        console.log(`[検索結果] ${places ? places.length : 0}件のカレー店を取得`);
+        console.log(`[検索結果] ${places ? places.length : 0}件のカレー店を取得 (最大30件要求)`);
         if (places && places.length > 0) {
             console.log(`[検索結果] 最初の店舗: ${places[0].displayName}, 評価: ${places[0].rating || 'なし'}`);
         }
