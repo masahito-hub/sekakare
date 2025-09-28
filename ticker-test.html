@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ティッカー機能テスト</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #f5a623;
+            padding-bottom: 10px;
+        }
+        .controls {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #f5a623;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #e69514;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.debug {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.normal {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        iframe {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎫 ティッカー機能テストページ</h1>
+
+        <div class="info-box">
+            <strong>📋 テスト概要:</strong><br>
+            このページでは、ヘッダーティッカー機能の動作確認ができます。<br>
+            デバッグモードの切り替えで、ティッカー表示とデバッグ情報表示を切り替えられます。
+        </div>
+
+        <div class="controls">
+            <h3>コントロールパネル</h3>
+
+            <div id="currentStatus" class="status normal">
+                現在のモード: <strong>通常モード（ティッカー表示）</strong>
+            </div>
+
+            <button class="btn-primary" onclick="toggleDebugMode()">
+                🔄 デバッグモード切り替え
+            </button>
+
+            <button class="btn-secondary" onclick="clearCache()">
+                🗑️ キャッシュクリア
+            </button>
+
+            <button class="btn-secondary" onclick="reloadPage()">
+                🔃 ページリロード
+            </button>
+        </div>
+
+        <div class="info-box">
+            <strong>💡 使い方:</strong>
+            <ul>
+                <li><code>デバッグモード切り替え</code> - localStorage の sekakare_debug フラグを切り替えます</li>
+                <li><code>キャッシュクリア</code> - CSVデータのキャッシュをクリアして最新データを取得</li>
+                <li><code>ページリロード</code> - iframeをリロードして変更を反映</li>
+            </ul>
+        </div>
+
+        <h3>📱 実際の表示:</h3>
+        <iframe id="testFrame" src="index.html"></iframe>
+
+        <div class="info-box">
+            <strong>🔍 確認項目:</strong>
+            <ul>
+                <li>✅ CSV正常読み込み・パース</li>
+                <li>✅ priority/日付順ソート</li>
+                <li>✅ 5秒間隔ローテーション</li>
+                <li>✅ クリックでURL遷移（新しいタブ）</li>
+                <li>✅ デバッグモード切り替え</li>
+                <li>✅ PR記事の特別表示（黄色背景）</li>
+                <li>✅ CSVデータのキャッシング（5分間）</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 初期状態を確認
+        function checkCurrentMode() {
+            const isDebugMode = localStorage.getItem('sekakare_debug') === 'true';
+            const statusElement = document.getElementById('currentStatus');
+
+            if (isDebugMode) {
+                statusElement.className = 'status debug';
+                statusElement.innerHTML = '現在のモード: <strong>デバッグモード（デバッグ情報表示）</strong>';
+            } else {
+                statusElement.className = 'status normal';
+                statusElement.innerHTML = '現在のモード: <strong>通常モード（ティッカー表示）</strong>';
+            }
+        }
+
+        // デバッグモード切り替え
+        function toggleDebugMode() {
+            const currentMode = localStorage.getItem('sekakare_debug') === 'true';
+            const newMode = !currentMode;
+
+            localStorage.setItem('sekakare_debug', newMode.toString());
+
+            checkCurrentMode();
+
+            // iframeのコンテンツウィンドウにアクセスして再初期化を試みる
+            try {
+                const iframe = document.getElementById('testFrame');
+                if (iframe && iframe.contentWindow && iframe.contentWindow.reinitializeTicker) {
+                    iframe.contentWindow.reinitializeTicker();
+                    console.log('ティッカーを再初期化しました');
+                } else {
+                    // 再初期化関数が利用できない場合はリロード
+                    reloadPage();
+                }
+            } catch (e) {
+                console.log('再初期化できないためリロードします');
+                reloadPage();
+            }
+        }
+
+        // キャッシュクリア
+        function clearCache() {
+            localStorage.removeItem('sekakare_ticker_data');
+            alert('CSVキャッシュをクリアしました。ページをリロードすると最新データを取得します。');
+        }
+
+        // ページリロード
+        function reloadPage() {
+            const iframe = document.getElementById('testFrame');
+            iframe.src = iframe.src;
+        }
+
+        // ページ読み込み時に状態をチェック
+        window.addEventListener('load', function() {
+            checkCurrentMode();
+        });
+    </script>
+</body>
+</html>

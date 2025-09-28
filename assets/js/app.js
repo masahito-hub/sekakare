@@ -699,9 +699,14 @@ function displayLogs() {
 
 // デバッグ情報を更新
 function updateDebugInfo(html) {
-    const debugElement = document.getElementById('debugInfo');
-    if (debugElement) {
-        debugElement.innerHTML = html;
+    // デバッグモードの場合のみ更新
+    const isDebugMode = localStorage.getItem('sekakare_debug') === 'true';
+    if (isDebugMode) {
+        const debugElement = document.getElementById('debugInfo');
+        if (debugElement) {
+            debugElement.innerHTML = html;
+            debugElement.style.display = 'block';
+        }
     }
 }
 

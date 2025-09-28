@@ -187,6 +187,58 @@ body {
     font-size: 12px;
 }
 
+/* ティッカーコンテナ */
+.ticker-container {
+    padding: 10px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    margin: 10px;
+    border-radius: 5px;
+    font-size: 14px;
+    overflow: hidden;
+    position: relative;
+    min-height: 24px;
+}
+
+/* ティッカーアイテム */
+.ticker-item {
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.ticker-item.active {
+    opacity: 1;
+}
+
+/* ティッカーカテゴリ */
+.ticker-category {
+    font-weight: bold;
+    color: #666;
+    margin-right: 8px;
+}
+
+/* ティッカーリンク */
+.ticker-link {
+    color: #333;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.ticker-link:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+
+/* PRカテゴリの特別スタイル */
+.ticker-container.pr-category {
+    background: #fffbf0;
+    border-color: #f5a623;
+}
+
+.ticker-container.pr-category .ticker-category {
+    color: #f5a623;
+}
+
 /* マーカーアニメーション */
 @keyframes markerScaleIn {
     from {
