@@ -135,13 +135,6 @@
 
         <div class="control-panel">
             <div class="control-group">
-                <h3>デバッグモード制御</h3>
-                <button id="toggleDebugMode">デバッグモード切り替え</button>
-                <button id="showDebugStatus" class="secondary">現在の状態を表示</button>
-                <div id="debugStatus" style="margin-top: 10px;"></div>
-            </div>
-
-            <div class="control-group">
                 <h3>キャッシュ制御</h3>
                 <button id="clearTickerCache">ティッカーキャッシュをクリア</button>
                 <button id="showCacheStatus" class="secondary">キャッシュ状態を表示</button>
@@ -177,13 +170,7 @@
         <div class="status-panel">
             <h3>現在のステータス</h3>
             <div class="status-item">
-                <strong>デバッグモード:</strong> <span id="currentDebugMode">確認中...</span>
-            </div>
-            <div class="status-item">
                 <strong>ティッカーキャッシュ:</strong> <span id="currentCacheStatus">確認中...</span>
-            </div>
-            <div class="status-item">
-                <strong>表示モード:</strong> <span id="currentDisplayMode">確認中...</span>
             </div>
         </div>
 
@@ -196,10 +183,7 @@
     <script>
         // ステータス更新
         function updateStatus() {
-            const isDebugMode = localStorage.getItem('sekakare_debug') === 'true';
-            document.getElementById('currentDebugMode').textContent = isDebugMode ? '有効' : '無効';
-            document.getElementById('currentDebugMode').className = isDebugMode ? 'success' : '';
-
+            // デバッグモード関連を削除、キャッシュ状態のみ更新
             const cache = localStorage.getItem('sekakare_ticker_cache');
             if (cache) {
                 try {
@@ -214,34 +198,7 @@
             } else {
                 document.getElementById('currentCacheStatus').textContent = 'キャッシュなし';
             }
-
-            document.getElementById('currentDisplayMode').textContent =
-                isDebugMode ? 'デバッグ情報表示' : 'ティッカー表示';
         }
-
-        // デバッグモード切り替え
-        document.getElementById('toggleDebugMode').addEventListener('click', () => {
-            const current = localStorage.getItem('sekakare_debug') === 'true';
-            const newValue = !current;
-            localStorage.setItem('sekakare_debug', newValue.toString());
-
-            document.getElementById('debugStatus').innerHTML =
-                `<span class="${newValue ? 'success' : 'danger'}">
-                    デバッグモードを${newValue ? '有効' : '無効'}にしました
-                </span>`;
-
-            updateStatus();
-            setTimeout(() => {
-                document.getElementById('preview').src = 'index.html?' + Date.now();
-            }, 100);
-        });
-
-        // デバッグ状態表示
-        document.getElementById('showDebugStatus').addEventListener('click', () => {
-            const status = localStorage.getItem('sekakare_debug');
-            document.getElementById('debugStatus').innerHTML =
-                `<code>sekakare_debug = ${status || 'null'}</code>`;
-        });
 
         // キャッシュクリア
         document.getElementById('clearTickerCache').addEventListener('click', () => {

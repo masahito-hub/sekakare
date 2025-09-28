@@ -697,26 +697,14 @@ function displayLogs() {
     `).join('');
 }
 
-// デバッグ情報を更新（ティッカーモード対応）
+// デバッグ情報を更新（ティッカー常時表示）
 function updateDebugInfo(html) {
     const debugElement = document.getElementById('debugInfo');
-    const isDebugMode = localStorage.getItem('sekakare_debug') === 'true';
 
     if (debugElement) {
         debugElement.innerHTML = html;
-
-        // デバッグモードでない場合はティッカーを優先表示
-        if (!isDebugMode) {
-            // ティッカーが有効でない場合のみデバッグ情報を表示
-            const tickerContainer = document.getElementById('tickerContainer');
-            if (tickerContainer && tickerContainer.style.display !== 'block') {
-                // ティッカーエラー時のフォールバック
-                debugElement.style.display = 'block';
-            }
-        } else {
-            // デバッグモードの場合は常に表示
-            debugElement.style.display = 'block';
-        }
+        // デバッグ情報は常に非表示（ティッカーのみ表示）
+        debugElement.style.display = 'none';
     }
 }
 

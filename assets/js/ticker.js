@@ -253,17 +253,7 @@ async function initTicker() {
     // DOM要素の初期キャッシュ
     initDOMElements();
 
-    // デバッグモードチェック
-    const isDebugMode = localStorage.getItem('sekakare_debug') === 'true';
-
-    if (isDebugMode) {
-        console.log('デバッグモードが有効 - ティッカーを非表示');
-        if (elements.tickerContainer) {
-            elements.tickerContainer.style.display = 'none';
-        }
-        document.getElementById('debugInfo').style.display = 'block';
-        return;
-    }
+    // 常にティッカーを表示（デバッグモード削除）
 
     try {
         // データ取得
@@ -288,7 +278,7 @@ async function initTicker() {
             if (elements.tickerContainer) {
                 elements.tickerContainer.style.display = 'block';
             }
-            document.getElementById('debugInfo').style.display = 'none';
+            // デバッグ表示削除（ティッカーのみ表示）
 
             // ローテーション開始
             startRotation();
@@ -303,13 +293,13 @@ async function initTicker() {
     }
 }
 
-// デバッグモードへフォールバック
+// エラー時の処理（ティッカー表示継続）
 function fallbackToDebugMode() {
-    console.log('デバッグモードへフォールバック');
+    console.log('ティッカー初期化エラー - ティッカー表示継続');
+    // エラー時でもティッカーコンテナは表示したまま
     if (elements.tickerContainer) {
-        elements.tickerContainer.style.display = 'none';
+        elements.tickerContainer.style.display = 'block';
     }
-    document.getElementById('debugInfo').style.display = 'block';
 }
 
 // クリーンアップ処理（メモリリーク防止）
@@ -333,14 +323,7 @@ function cleanup() {
 // ページアンロード時のクリーンアップ
 window.addEventListener('beforeunload', cleanup);
 
-// デバッグモード切り替え監視
-window.addEventListener('storage', (e) => {
-    if (e.key === 'sekakare_debug') {
-        console.log('デバッグモード設定が変更されました');
-        cleanup();
-        initTicker();
-    }
-});
+// デバッグモード切り替え監視削除（デバッグモード機能削除）
 
 // エクスポート（テスト用）
 if (typeof module !== 'undefined' && module.exports) {
