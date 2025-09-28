@@ -50,6 +50,9 @@
     <!-- 設定ファイル（APIキー管理） -->
     <script src="assets/js/config.js"></script>
 
+    <!-- Papaparse for CSV parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
     <!-- Google Analytics 4 -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
     <script>
@@ -64,6 +67,9 @@
         <h1>🍛 セカカレ</h1>
         <p>世界をカレーで塗り尽くそう！あなたのカレー体験を記録</p>
     </div>
+
+    <!-- ティッカーコンテナ -->
+    <div id="tickerContainer" class="ticker-container"></div>
 
     <div class="debug-info" id="debugInfo">
         <strong>起動中...</strong> カレー店データを読み込み中です
@@ -102,5 +108,8 @@
 
     <!-- メインアプリケーションJS -->
     <script src="assets/js/app.js"></script>
+
+    <!-- ティッカー機能 -->
+    <script src="assets/js/ticker.js"></script>
 </body>
 </html>

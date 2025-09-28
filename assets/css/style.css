@@ -187,6 +187,66 @@ body {
     font-size: 12px;
 }
 
+/* ティッカースタイル */
+.ticker-container {
+    padding: 10px 15px;
+    background: linear-gradient(90deg, #fff8dc 0%, #fffaf0 100%);
+    border-bottom: 1px solid #ffd700;
+    margin: 10px;
+    border-radius: 5px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    font-size: 14px;
+}
+
+.ticker-item {
+    display: flex;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    width: 100%;
+}
+
+.ticker-item.active {
+    opacity: 1;
+}
+
+.ticker-category {
+    font-weight: bold;
+    color: #ff8c00;
+    margin-right: 8px;
+    white-space: nowrap;
+}
+
+.ticker-item a {
+    color: #333;
+    text-decoration: none;
+    transition: color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 80px);
+}
+
+.ticker-item a:hover {
+    color: #ff8c00;
+    text-decoration: underline;
+}
+
+/* PRカテゴリ用特別スタイル */
+.ticker-item.ticker-pr {
+    background: #fffacd;
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+
+.ticker-item.ticker-pr .ticker-category {
+    color: #ff6b35;
+    font-weight: bold;
+}
+
 /* マーカーアニメーション */
 @keyframes markerScaleIn {
     from {
