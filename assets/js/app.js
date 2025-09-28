@@ -553,12 +553,12 @@ function showPopup(place) {
         document.getElementById('popupTitle').textContent = titleText;
         document.getElementById('popupAddress').textContent = place.vicinity;
 
-        // 訪問済みの場合はボタンを無効化または変更
+        // 訪問済みの場合はボタンのテキストを変更（再訪問可能）
         const btnAte = document.getElementById('btnAte');
         if (isVisited) {
             btnAte.textContent = '✅ 訪問済み';
-            btnAte.disabled = true;
-            btnAte.style.opacity = '0.6';
+            btnAte.disabled = false;  // 再訪問記録を可能にする
+            btnAte.style.opacity = '0.8';  // 少し透明度を上げて訪問済みを表現
         } else {
             btnAte.textContent = '🍛 食べた！';
             btnAte.disabled = false;
