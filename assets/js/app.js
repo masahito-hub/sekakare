@@ -229,20 +229,34 @@ async function autoSearchCurryShops(location) {
         if (places && places.length > 0) {
             clearMarkers();
 
-            // 評価でソートして表示件数を制限
-            let placesToShow = places;
+            // 訪問済み店舗をフィルタリングして除外
+            let unvisitedPlaces = places.filter(place => {
+                const placeId = place.id || 'new_api_' + Date.now() + '_' + Math.random();
+                const isVisited = curryLogs.some(log => log.id === placeId);
+                return !isVisited;  // 未訪問のみを含める
+            });
+
+            console.log(`[フィルタリング] 全${places.length}件中、未訪問${unvisitedPlaces.length}件を抽出`);
+
+            // 未訪問店舗がない場合の処理
+            if (unvisitedPlaces.length === 0) {
+                updateDebugInfo('<strong>✨ この周辺の店舗はすべて訪問済みです！</strong> 新しいエリアを探検してみましょう');
+                console.log('すべて訪問済み - 新エリアの探索を推奨');
+                return;
+            }
 
             // 評価でソート（評価がない場合は0として扱う）
-            placesToShow = placesToShow.sort((a, b) => {
+            let placesToShow = unvisitedPlaces.sort((a, b) => {
                 const ratingA = a.rating || 0;
                 const ratingB = b.rating || 0;
                 return ratingB - ratingA;  // 降順
             });
 
-            // 設定された表示件数で切り捨て
-            if (placesToShow.length > Config.settings.maxSearchResults) {
-                placesToShow = placesToShow.slice(0, Config.settings.maxSearchResults);
-                console.log(`評価順でソート後、上位${Config.settings.maxSearchResults}件を表示`);
+            // 新発見特化: 表示件数を10件程度に制限
+            const maxUnvisitedDisplay = 10;  // 新発見重視のため10件に制限
+            if (placesToShow.length > maxUnvisitedDisplay) {
+                placesToShow = placesToShow.slice(0, maxUnvisitedDisplay);
+                console.log(`新発見特化: 評価順で上位${maxUnvisitedDisplay}件を表示`);
             }
 
             placesToShow.forEach(place => createNewMarker(place));
@@ -259,7 +273,7 @@ async function autoSearchCurryShops(location) {
                 });
             }
 
-            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${placesToShow.length}件のカレー店を表示中`);
+            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> 未訪問${placesToShow.length}件表示 (新発見特化モード)`);
         } else {
             updateDebugInfo('<strong>⚠️ この周辺にはカレー店が見つかりませんでした</strong> 地図を移動してみてください');
         }
