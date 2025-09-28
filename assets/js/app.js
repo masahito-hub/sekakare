@@ -229,37 +229,79 @@ async function autoSearchCurryShops(location) {
         if (places && places.length > 0) {
             clearMarkers();
 
-            // 評価でソートして表示件数を制限
-            let placesToShow = places;
-
-            // 評価でソート（評価がない場合は0として扱う）
-            placesToShow = placesToShow.sort((a, b) => {
-                const ratingA = a.rating || 0;
-                const ratingB = b.rating || 0;
-                return ratingB - ratingA;  // 降順
-            });
-
-            // 設定された表示件数で切り捨て
-            if (placesToShow.length > Config.settings.maxSearchResults) {
-                placesToShow = placesToShow.slice(0, Config.settings.maxSearchResults);
-                console.log(`評価順でソート後、上位${Config.settings.maxSearchResults}件を表示`);
-            }
-
-            placesToShow.forEach(place => createNewMarker(place));
-
-            // Google Analytics - 自動検索成功イベント
-            if (typeof gtag !== 'undefined') {
-                gtag('event', 'auto_search_success', {
-                    'event_category': 'search_result',
-                    'result_count': placesToShow.length,
-                    'latitude': lat.toFixed(4),
-                    'longitude': lng.toFixed(4),
-                    'event_label': `自動検索 - ${placesToShow.length}件`,
-                    'custom_parameter_1': 'auto_search'
+            // 訪問済み店舗IDをSetに格納してO(1)でのチェックを可能にする
+            const visitedIds = new Set();
+            if (Array.isArray(curryLogs)) {
+                curryLogs.forEach(log => {
+                    if (log.id) {
+                        visitedIds.add(log.id);
+                    }
                 });
             }
 
-            updateDebugInfo(`<strong>✅ 自動検索完了！</strong> この周辺で${placesToShow.length}件のカレー店を表示中`);
+            // 各店舗にIDを生成・設定（再利用可能な形式で）
+            const placesWithIds = places.map(place => {
+                // 既存のIDがあればそれを使用、なければ新規生成
+                if (!place.id) {
+                    place.id = 'place_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+                }
+                return place;
+            });
+
+            // 未訪問店舗のみをフィルタリング
+            const unvisitedPlaces = placesWithIds.filter(place => !visitedIds.has(place.id));
+
+            console.log(`[新発見特化モード] 全${placesWithIds.length}件中、未訪問${unvisitedPlaces.length}件をフィルタリング`);
+
+            let placesToShow = unvisitedPlaces;
+
+            if (placesToShow.length > 0) {
+                // 評価でソート（評価がない場合は0として扱う）
+                placesToShow = placesToShow.sort((a, b) => {
+                    const ratingA = a.rating || 0;
+                    const ratingB = b.rating || 0;
+                    return ratingB - ratingA;  // 降順
+                });
+
+                // Config設定と組み合わせた表示件数制限（新発見特化は10件）
+                const maxUnvisitedDisplay = Math.min(10, Config.settings.maxSearchResults);
+                if (placesToShow.length > maxUnvisitedDisplay) {
+                    placesToShow = placesToShow.slice(0, maxUnvisitedDisplay);
+                    console.log(`評価順でソート後、上位${maxUnvisitedDisplay}件を表示（新発見特化）`);
+                }
+
+                placesToShow.forEach(place => createNewMarker(place));
+
+                // Google Analytics - 自動検索成功イベント
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'auto_search_success', {
+                        'event_category': 'search_result',
+                        'result_count': placesToShow.length,
+                        'unvisited_count': unvisitedPlaces.length,
+                        'latitude': lat.toFixed(4),
+                        'longitude': lng.toFixed(4),
+                        'event_label': `自動検索 - 未訪問${placesToShow.length}件`,
+                        'custom_parameter_1': 'auto_search_unvisited'
+                    });
+                }
+
+                updateDebugInfo(`<strong>✅ 自動検索完了！</strong> 未訪問${placesToShow.length}件表示 (新発見特化モード)`);
+            } else {
+                // すべて訪問済みの場合
+                updateDebugInfo('<strong>✨ この周辺の店舗はすべて訪問済みです！</strong> 新しいエリアを探検してみましょう');
+
+                // Google Analytics - すべて訪問済みイベント
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'all_visited_area', {
+                        'event_category': 'search_result',
+                        'visited_count': placesWithIds.length,
+                        'latitude': lat.toFixed(4),
+                        'longitude': lng.toFixed(4),
+                        'event_label': `すべて訪問済み - ${placesWithIds.length}件`,
+                        'custom_parameter_1': 'all_visited'
+                    });
+                }
+            }
         } else {
             updateDebugInfo('<strong>⚠️ この周辺にはカレー店が見つかりませんでした</strong> 地図を移動してみてください');
         }
@@ -372,9 +414,16 @@ function createNewMarker(place) {
     console.log('マーカーを作成中:', place.displayName);
 
     try {
-        // 訪問済みかチェック
-        const placeId = place.id || 'new_api_' + Date.now() + '_' + Math.random();
-        const isVisited = curryLogs.some(log => log.id === placeId);
+        // place.idを再利用（既に生成済みのIDを使用）
+        const placeId = place.id;
+
+        // 訪問済みチェックの最適化（curryLogsの配列チェック追加）
+        let isVisited = false;
+        if (Array.isArray(curryLogs)) {
+            // O(n)だが、curryLogsは通常小規模なので問題ない
+            // 大規模な場合は上位でSetを作成済み
+            isVisited = curryLogs.some(log => log.id === placeId);
+        }
 
         // Advanced Markerを使用
         const markerContent = document.createElement('div');
@@ -427,9 +476,14 @@ function createNewMarker(place) {
 function createSimpleMarker(place) {
     console.log('フォールバックマーカーを作成:', place.displayName);
 
-    // 訪問済みかチェック
-    const placeId = place.id || 'simple_' + Date.now();
-    const isVisited = curryLogs.some(log => log.id === placeId);
+    // place.idを再利用（既に生成済みの場合はそれを使用）
+    const placeId = place.id || 'simple_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+
+    // 訪問済みチェックの最適化（配列チェック追加）
+    let isVisited = false;
+    if (Array.isArray(curryLogs)) {
+        isVisited = curryLogs.some(log => log.id === placeId);
+    }
 
     // フォールバックでも可能な限りAdvanced Markerを使用
     const markerContent = document.createElement('div');
@@ -480,8 +534,11 @@ function clearMarkers() {
 function showPopup(place) {
     console.log('ポップアップを表示:', place);
     try {
-        // 訪問済みかチェック
-        const isVisited = curryLogs.some(log => log.id === place.place_id);
+        // 訪問済みチェックの最適化（配列チェック追加）
+        let isVisited = false;
+        if (Array.isArray(curryLogs)) {
+            isVisited = curryLogs.some(log => log.id === place.place_id);
+        }
 
         // タイトルに訪問済み表示を追加
         let titleText = place.name;
