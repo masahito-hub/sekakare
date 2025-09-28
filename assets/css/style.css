@@ -187,6 +187,61 @@ body {
     font-size: 12px;
 }
 
+/* ティッカー機能スタイル */
+.ticker-container {
+    padding: 10px;
+    background: linear-gradient(90deg, #fff3cd 0%, #fff9e6 100%);
+    border-bottom: 2px solid #ffc107;
+    margin: 0;
+    overflow: hidden;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+}
+
+.ticker-item {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ticker-item.active {
+    opacity: 1;
+}
+
+.ticker-category {
+    font-weight: bold;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: #6c757d;
+    color: white;
+}
+
+.ticker-category-pr {
+    background: #ffc107;
+    color: #333;
+}
+
+.ticker-category-news {
+    background: #6c757d;
+    color: white;
+}
+
+.ticker-item a {
+    color: #333;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+
+.ticker-item a:hover {
+    color: #ff6b00;
+    text-decoration: underline;
+}
+
 /* マーカーアニメーション */
 @keyframes markerScaleIn {
     from {

@@ -697,11 +697,26 @@ function displayLogs() {
     `).join('');
 }
 
-// デバッグ情報を更新
+// デバッグ情報を更新（ティッカーモード対応）
 function updateDebugInfo(html) {
     const debugElement = document.getElementById('debugInfo');
+    const isDebugMode = localStorage.getItem('sekakare_debug') === 'true';
+
     if (debugElement) {
         debugElement.innerHTML = html;
+
+        // デバッグモードでない場合はティッカーを優先表示
+        if (!isDebugMode) {
+            // ティッカーが有効でない場合のみデバッグ情報を表示
+            const tickerContainer = document.getElementById('tickerContainer');
+            if (tickerContainer && tickerContainer.style.display !== 'block') {
+                // ティッカーエラー時のフォールバック
+                debugElement.style.display = 'block';
+            }
+        } else {
+            // デバッグモードの場合は常に表示
+            debugElement.style.display = 'block';
+        }
     }
 }
 
@@ -848,6 +863,11 @@ function loadGoogleMaps() {
 // 初期化処理
 function init() {
     setupEventListeners();
+
+    // ティッカー機能を初期化
+    if (typeof initTicker === 'function') {
+        initTicker();
+    }
 
     // APIキーが設定されているかチェック
     if (!validateApiKey()) {
