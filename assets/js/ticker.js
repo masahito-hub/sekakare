@@ -85,7 +85,7 @@ function setCache(items) {
 
 // CSV取得・パース
 async function fetchTickerData() {
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR5A92ZAN-APb-JPjiUOOyQSZoR1Owl6vbn2kz5sKu0RVrptYi7aw_GtA-pTO1Oc_YKtg7arooYXUBk/pub?gid=0&single=true&output=csv';
+    const csvUrl = '/assets/data/ticker-data.csv';
 
     try {
         // キャッシュチェック
