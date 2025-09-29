@@ -295,21 +295,22 @@ async function initTicker() {
             isTickerEnabled = true;
         } else {
             console.log('表示するニュースがありません');
-            fallbackToDebugMode();
+            handleTickerError();
         }
     } catch (error) {
         console.error('ティッカー初期化エラー:', error);
-        fallbackToDebugMode();
+        handleTickerError();
     }
 }
 
-// デバッグモードへフォールバック
-function fallbackToDebugMode() {
-    console.log('デバッグモードへフォールバック');
+// エラー時の処理
+function handleTickerError() {
+    console.log('ティッカーエラー処理');
     if (elements.tickerContainer) {
         elements.tickerContainer.style.display = 'none';
     }
-    document.getElementById('debugInfo').style.display = 'block';
+    // デバッグモード削除により、エラー時もデバッグ情報は非表示
+    document.getElementById('debugInfo').style.display = 'none';
 }
 
 // クリーンアップ処理（メモリリーク防止）
