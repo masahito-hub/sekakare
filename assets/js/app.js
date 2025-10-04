@@ -1,8 +1,5 @@
 // メインアプリケーションロジック
 
-// 定数定義
-const MAX_UNVISITED_DISPLAY = 10;  // 新発見特化モードでの最大表示件数
-
 let map;
 let currentPlace = null;
 let curryLogs = JSON.parse(localStorage.getItem(Config.storageKeys.curryLogs) || '[]');
@@ -256,8 +253,8 @@ async function autoSearchCurryShops(location) {
             // すべての店舗を表示（訪問済みも含む）
             clearMarkers();
 
-            // 店舗を評価でソート
-            let placesToShow = places.sort((a, b) => {
+            // 店舗を評価でソート（非破壊的）
+            let placesToShow = [...places].sort((a, b) => {
                 const ratingA = a.rating || 0;
                 const ratingB = b.rating || 0;
                 return ratingB - ratingA;  // 降順
