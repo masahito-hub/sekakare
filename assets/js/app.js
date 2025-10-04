@@ -628,6 +628,34 @@ function updateHeatmapData(placeId, lat, lng) {
 function displayHeatmap() {
     console.log('ヒートマップを表示中...');
 
+    // Canvas実装を優先的に使用
+    if (typeof HeatmapOverlay !== 'undefined') {
+        // Canvas実装を使用
+        const heatmapPoints = Object.values(heatmapData).map(data => ({
+            lat: data.lat,
+            lng: data.lng,
+            count: data.count
+        }));
+
+        if (window.heatmapOverlay) {
+            // 既存のオーバーレイを更新
+            window.heatmapOverlay.setData(heatmapPoints);
+        } else {
+            // 新規作成
+            window.heatmapOverlay = new HeatmapOverlay(map, heatmapPoints);
+        }
+
+        console.log(`ヒートマップ（Canvas） ${heatmapPoints.length} 箇所を表示`);
+    } else {
+        // フォールバック: Circle実装
+        displayHeatmapWithCircles();
+    }
+}
+
+// Circleベースのヒートマップ表示（フォールバック）
+function displayHeatmapWithCircles() {
+    console.log('ヒートマップ（Circle フォールバック）を表示中...');
+
     // 既存の円を削除
     heatmapCircles.forEach(circle => circle.setMap(null));
     heatmapCircles = [];
@@ -663,7 +691,7 @@ function displayHeatmap() {
         }
     });
 
-    console.log(`ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+    console.log(`ヒートマップ（Circle） ${Object.keys(heatmapData).length} 箇所を表示`);
 }
 
 // ログを表示

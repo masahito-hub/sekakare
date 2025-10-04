@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ヒートマップデバッグツール - セカカレ</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/heatmap-overlay.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .debug-container {
+            display: flex;
+            height: 100vh;
+        }
+        .debug-panel {
+            width: 350px;
+            background: #f5f5f5;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+        .debug-panel h2 {
+            margin-top: 0;
+            color: #ff6b00;
+        }
+        .debug-section {
+            margin-bottom: 25px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .debug-section h3 {
+            margin-top: 0;
+            font-size: 14px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        .param-control {
+            margin-bottom: 15px;
+        }
+        .param-control label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .param-control input[type="range"],
+        .param-control input[type="number"] {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .param-value {
+            font-weight: bold;
+            color: #ff6b00;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .button-group button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background: #ff6b00;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .button-group button:hover {
+            background: #e55f00;
+        }
+        .button-group button.secondary {
+            background: #666;
+        }
+        .button-group button.secondary:hover {
+            background: #555;
+        }
+        #map {
+            flex: 1;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <div class="debug-panel">
+            <h2>🔧 ヒートマップデバッグ</h2>
+
+            <div class="info-box">
+                パラメータをリアルタイムで調整してヒートマップの見え方を確認できます。変更は自動的にlocalStorageに保存されます。
+            </div>
+
+            <div class="debug-section">
+                <h3>📏 ズーム連動半径</h3>
+
+                <div class="param-control">
+                    <label>z_ref (基準ズーム): <span class="param-value" id="val_z_ref">14</span></label>
+                    <input type="range" id="z_ref" min="10" max="18" step="1" value="14">
+                </div>
+
+                <div class="param-control">
+                    <label>r_base (基準半径px): <span class="param-value" id="val_r_base">14</span></label>
+                    <input type="range" id="r_base" min="8" max="24" step="1" value="14">
+                </div>
+
+                <div class="param-control">
+                    <label>k (伸び係数): <span class="param-value" id="val_k">1.28</span></label>
+                    <input type="range" id="k" min="1.1" max="1.5" step="0.02" value="1.28">
+                </div>
+
+                <div class="param-control">
+                    <label>r_min_px (最小半径): <span class="param-value" id="val_r_min_px">16</span></label>
+                    <input type="range" id="r_min_px" min="8" max="24" step="1" value="16">
+                </div>
+
+                <div class="param-control">
+                    <label>r_max_px (最大半径): <span class="param-value" id="val_r_max_px">48</span></label>
+                    <input type="range" id="r_max_px" min="32" max="80" step="2" value="48">
+                </div>
+            </div>
+
+            <div class="debug-section">
+                <h3>🎨 透明度</h3>
+
+                <div class="param-control">
+                    <label>alpha_base (基本透明度): <span class="param-value" id="val_alpha_base">0.55</span></label>
+                    <input type="range" id="alpha_base" min="0.3" max="0.8" step="0.05" value="0.55">
+                </div>
+
+                <div class="param-control">
+                    <label>tau (孤立閾値): <span class="param-value" id="val_tau">3</span></label>
+                    <input type="range" id="tau" min="1" max="8" step="1" value="3">
+                </div>
+
+                <div class="param-control">
+                    <label>isolation_boost (孤立ブースト): <span class="param-value" id="val_isolation_boost">1.25</span></label>
+                    <input type="range" id="isolation_boost" min="1.0" max="2.0" step="0.05" value="1.25">
+                </div>
+            </div>
+
+            <div class="debug-section">
+                <h3>🌈 色マップ (LCH)</h3>
+
+                <div class="param-control">
+                    <label>gamma (ガンマ補正): <span class="param-value" id="val_gamma">1.45</span></label>
+                    <input type="range" id="gamma" min="1.0" max="2.0" step="0.05" value="1.45">
+                </div>
+
+                <div class="param-control">
+                    <label>color_light_L: <span class="param-value" id="val_color_light_L">95</span></label>
+                    <input type="range" id="color_light_L" min="80" max="100" step="1" value="95">
+                </div>
+
+                <div class="param-control">
+                    <label>color_dark_L: <span class="param-value" id="val_color_dark_L">72</span></label>
+                    <input type="range" id="color_dark_L" min="50" max="90" step="1" value="72">
+                </div>
+            </div>
+
+            <div class="debug-section">
+                <h3>📊 正規化</h3>
+
+                <div class="param-control">
+                    <label>percentile_low: <span class="param-value" id="val_percentile_low">5</span></label>
+                    <input type="range" id="percentile_low" min="0" max="10" step="1" value="5">
+                </div>
+
+                <div class="param-control">
+                    <label>percentile_high: <span class="param-value" id="val_percentile_high">95</span></label>
+                    <input type="range" id="percentile_high" min="85" max="100" step="1" value="95">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="resetParams()">リセット</button>
+                <button class="secondary" onclick="exportParams()">Export</button>
+            </div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <script>
+        let map;
+        let heatmapOverlay;
+
+        // サンプルデータを生成（東京周辺にランダムな点）
+        function generateSampleData() {
+            const data = [];
+            const centerLat = 35.6812;
+            const centerLng = 139.7671;
+
+            for (let i = 0; i < 100; i++) {
+                data.push({
+                    lat: centerLat + (Math.random() - 0.5) * 0.2,
+                    lng: centerLng + (Math.random() - 0.5) * 0.2,
+                    count: Math.floor(Math.random() * 5) + 1
+                });
+            }
+
+            return data;
+        }
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 12,
+                center: { lat: 35.6812, lng: 139.7671 },
+                mapId: 'sekakare_debug_map'
+            });
+
+            const sampleData = generateSampleData();
+            heatmapOverlay = new HeatmapOverlay(map, sampleData);
+
+            // Load saved parameters
+            loadParams();
+        }
+
+        function updateParam(name) {
+            const input = document.getElementById(name);
+            const valueSpan = document.getElementById('val_' + name);
+            const value = parseFloat(input.value);
+
+            valueSpan.textContent = value;
+
+            if (heatmapOverlay) {
+                const params = {};
+                params[name] = value;
+                heatmapOverlay.setParams(params);
+            }
+
+            // Save to localStorage
+            localStorage.setItem('heatmap_debug_' + name, value);
+        }
+
+        function loadParams() {
+            const paramNames = [
+                'z_ref', 'r_base', 'k', 'r_min_px', 'r_max_px',
+                'alpha_base', 'tau', 'isolation_boost',
+                'gamma', 'color_light_L', 'color_dark_L',
+                'percentile_low', 'percentile_high'
+            ];
+
+            paramNames.forEach(name => {
+                const saved = localStorage.getItem('heatmap_debug_' + name);
+                if (saved !== null) {
+                    const input = document.getElementById(name);
+                    input.value = saved;
+                    updateParam(name);
+                }
+            });
+        }
+
+        function resetParams() {
+            const defaults = {
+                z_ref: 14,
+                r_base: 14,
+                k: 1.28,
+                r_min_px: 16,
+                r_max_px: 48,
+                alpha_base: 0.55,
+                tau: 3,
+                isolation_boost: 1.25,
+                gamma: 1.45,
+                color_light_L: 95,
+                color_dark_L: 72,
+                percentile_low: 5,
+                percentile_high: 95
+            };
+
+            Object.keys(defaults).forEach(name => {
+                const input = document.getElementById(name);
+                input.value = defaults[name];
+                updateParam(name);
+                localStorage.removeItem('heatmap_debug_' + name);
+            });
+
+            alert('パラメータをデフォルト値にリセットしました');
+        }
+
+        function exportParams() {
+            const params = {};
+            const paramNames = [
+                'z_ref', 'r_base', 'k', 'r_min_px', 'r_max_px',
+                'alpha_base', 'tau', 'isolation_boost',
+                'gamma', 'color_light_L', 'color_dark_L',
+                'percentile_low', 'percentile_high'
+            ];
+
+            paramNames.forEach(name => {
+                params[name] = parseFloat(document.getElementById(name).value);
+            });
+
+            const json = JSON.stringify(params, null, 2);
+            console.log('Heatmap Parameters:', json);
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(json).then(() => {
+                alert('パラメータをクリップボードにコピーしました！\nコンソールにも出力しています。');
+            }).catch(() => {
+                alert('パラメータをコンソールに出力しました。');
+            });
+        }
+
+        // Setup event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            const paramNames = [
+                'z_ref', 'r_base', 'k', 'r_min_px', 'r_max_px',
+                'alpha_base', 'tau', 'isolation_boost',
+                'gamma', 'color_light_L', 'color_dark_L',
+                'percentile_low', 'percentile_high'
+            ];
+
+            paramNames.forEach(name => {
+                const input = document.getElementById(name);
+                input.addEventListener('input', () => updateParam(name));
+            });
+        });
+
+        window.initMap = initMap;
+    </script>
+
+    <script>
+        // Load Google Maps API with key from config
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${Config.API_KEY}&libraries=places,marker&callback=initMap`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>
