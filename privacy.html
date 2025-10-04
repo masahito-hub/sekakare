@@ -8,6 +8,45 @@
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
+    <div class="header">
+        <h1>🍛 セカカレ</h1>
+        <p>世界をカレーで塗り尽くそう！あなたのカレー体験を記録</p>
+
+        <!-- Hamburger Menu Button -->
+        <button class="hamburger" id="hamburgerBtn" aria-label="メニューを開く" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </div>
+
+    <!-- Menu Overlay -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+
+    <!-- Slide Menu -->
+    <nav class="slide-menu" id="slideMenu" role="navigation" aria-label="メインメニュー">
+        <button class="menu-close" id="menuClose" aria-label="メニューを閉じる">×</button>
+        <ul class="menu-list">
+            <li><a href="/">🏠 ホーム</a></li>
+            <li><a href="/privacy.html">🔒 プライバシーポリシー</a></li>
+            <li><a href="#" id="aboutLink">ℹ️ セカカレについて</a></li>
+            <li><a href="https://x.com/sekakare" target="_blank" rel="noopener noreferrer">𝕏 公式アカウント</a></li>
+        </ul>
+    </nav>
+
+    <!-- Popup for About (reusing index.html structure) -->
+    <div class="popup-overlay" id="popupOverlay">
+        <div class="popup">
+            <h3 id="popupTitle">店舗名</h3>
+            <p id="popupAddress">住所</p>
+            <div class="popup-buttons">
+                <button class="btn btn-primary" id="btnAte">🍛 食べた！</button>
+                <button class="btn btn-secondary" id="btnDetails">詳細を見る</button>
+                <button class="btn btn-secondary" id="btnClose">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <div class="privacy-container">
         <h1>プライバシーポリシー</h1>
 
@@ -89,6 +128,9 @@
             <p><a href="privacy.html">プライバシーポリシー</a></p>
         </div>
     </footer>
+
+    <!-- ハンバーガーメニューJS -->
+    <script src="assets/js/menu.js"></script>
 
     <script>
         // フッターの著作権年を動的に設定
