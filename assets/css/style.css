@@ -411,3 +411,161 @@ body {
         font-size: 20px;
     }
 }
+
+/* ===============================
+   ハンバーガーメニュー
+   =============================== */
+
+/* ハンバーガーボタン */
+.hamburger {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+    transition: transform 0.3s ease;
+}
+
+.hamburger:hover {
+    transform: scale(1.1);
+}
+
+.hamburger span {
+    display: block;
+    width: 24px;
+    height: 3px;
+    background-color: #ff6b00;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+/* ハンバーガーボタンがアクティブな時（X字型） */
+.hamburger.active span:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+}
+
+/* メニューオーバーレイ */
+.menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 999;
+}
+
+.menu-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* スライドメニュー */
+.slide-menu {
+    position: fixed;
+    top: 0;
+    right: -300px;
+    width: 280px;
+    height: 100%;
+    background-color: #fff;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    transition: right 0.3s ease;
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.slide-menu.active {
+    right: 0;
+}
+
+/* メニュー閉じるボタン */
+.menu-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 36px;
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.menu-close:hover {
+    color: #ff6b00;
+}
+
+/* メニューリスト */
+.menu-list {
+    list-style: none;
+    padding: 60px 0 20px;
+    margin: 0;
+}
+
+.menu-list li {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.menu-list a {
+    display: block;
+    padding: 16px 24px;
+    color: #333;
+    text-decoration: none;
+    font-size: 16px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.menu-list a:hover {
+    background-color: #fff5ed;
+    color: #ff6b00;
+}
+
+/* body固定（メニュー開いている間スクロール無効） */
+body.menu-open {
+    overflow: hidden;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .slide-menu {
+        width: 85%;
+        max-width: 320px;
+        right: -100%;
+    }
+
+    .hamburger {
+        top: 15px;
+        right: 15px;
+    }
+}
+
+@media (min-width: 769px) {
+    .hamburger {
+        display: flex; /* デスクトップでも表示 */
+    }
+}
