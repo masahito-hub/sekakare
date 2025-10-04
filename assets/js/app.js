@@ -235,12 +235,12 @@ async function autoSearchCurryShops(location) {
         }
 
         if (places && places.length > 0) {
-            // 新発見特化: 訪問済みIDをSetで管理（O(1)での高速チェック）
+            // 訪問済みIDをSetで管理（O(1)での高速チェック）
             const visitedIds = new Set();
             if (Array.isArray(curryLogs)) {
                 curryLogs.forEach(log => visitedIds.add(log.id));
             }
-            console.log(`[新発見特化] 訪問済み店舗数: ${visitedIds.size}`);
+            console.log(`[検索結果] 訪問済み店舗数: ${visitedIds.size}`);
 
             // 各placeにIDを事前生成（後でマーカー作成時に再利用）
             places.forEach(place => {
@@ -253,61 +253,47 @@ async function autoSearchCurryShops(location) {
                 }
             });
 
-            // 未訪問店舗のみをフィルタリング
-            const unvisitedPlaces = places.filter(place => !visitedIds.has(place.id));
-            console.log(`[新発見特化] 総店舗数: ${places.length}, 未訪問: ${unvisitedPlaces.length}`);
+            // すべての店舗を表示（訪問済みも含む）
+            clearMarkers();
 
-            if (unvisitedPlaces.length > 0) {
-                clearMarkers();
+            // 店舗を評価でソート
+            let placesToShow = places.sort((a, b) => {
+                const ratingA = a.rating || 0;
+                const ratingB = b.rating || 0;
+                return ratingB - ratingA;  // 降順
+            });
 
-                // 未訪問店舗を評価でソート
-                let placesToShow = unvisitedPlaces.sort((a, b) => {
-                    const ratingA = a.rating || 0;
-                    const ratingB = b.rating || 0;
-                    return ratingB - ratingA;  // 降順
-                });
-
-                // 新発見特化: 最大表示件数を制限（10件またはConfig設定の小さい方）
-                const maxUnvisitedDisplay = Math.min(MAX_UNVISITED_DISPLAY, Config.settings.maxSearchResults);
-                if (placesToShow.length > maxUnvisitedDisplay) {
-                    placesToShow = placesToShow.slice(0, maxUnvisitedDisplay);
-                    console.log(`[新発見特化] 評価順でソート後、上位${maxUnvisitedDisplay}件を表示`);
-                }
-
-                placesToShow.forEach(place => createNewMarker(place));
-
-                // Google Analytics - 自動検索完了イベント（改善版）
-                if (typeof gtag !== 'undefined') {
-                    gtag('event', 'auto_search_completed', {
-                        'event_category': 'search_result',
-                        'unvisited_count': unvisitedPlaces.length,
-                        'total_count': places.length,  // 追加: 総件数
-                        'displayed_count': placesToShow.length,
-                        'latitude': lat.toFixed(4),
-                        'longitude': lng.toFixed(4),
-                        'event_label': `未訪問${unvisitedPlaces.length}件中${placesToShow.length}件表示`,
-                        'custom_parameter_1': 'discovery_mode'
-                    });
-                }
-
-                updateDebugInfo(`<strong>✅ 未訪問${placesToShow.length}件表示</strong> (新発見特化モード)`);
-            } else {
-                // すべて訪問済みの場合
-                clearMarkers();
-                updateDebugInfo('<strong>✨ この周辺の店舗はすべて訪問済みです！</strong> 新しいエリアを探検してみましょう');
-
-                // Google Analytics - 全訪問済みイベント
-                if (typeof gtag !== 'undefined') {
-                    gtag('event', 'all_visited_area', {
-                        'event_category': 'discovery',
-                        'total_count': places.length,
-                        'latitude': lat.toFixed(4),
-                        'longitude': lng.toFixed(4),
-                        'event_label': `全${places.length}件訪問済み`,
-                        'custom_parameter_1': 'fully_explored'
-                    });
-                }
+            // 最大表示件数を制限
+            const maxDisplay = Config.settings.maxSearchResults;
+            if (placesToShow.length > maxDisplay) {
+                placesToShow = placesToShow.slice(0, maxDisplay);
+                console.log(`[検索結果] 評価順でソート後、上位${maxDisplay}件を表示`);
             }
+
+            // すべての店舗にマーカーを作成（訪問済みは半透明で表示）
+            placesToShow.forEach(place => createNewMarker(place));
+
+            // 訪問済み・未訪問の件数をカウント
+            const visitedCount = placesToShow.filter(place => visitedIds.has(place.id)).length;
+            const unvisitedCount = placesToShow.length - visitedCount;
+
+            // Google Analytics - 自動検索完了イベント
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'auto_search_completed', {
+                    'event_category': 'search_result',
+                    'unvisited_count': unvisitedCount,
+                    'visited_count': visitedCount,
+                    'total_count': places.length,
+                    'displayed_count': placesToShow.length,
+                    'latitude': lat.toFixed(4),
+                    'longitude': lng.toFixed(4),
+                    'event_label': `全${placesToShow.length}件表示（未訪問${unvisitedCount}件、訪問済み${visitedCount}件）`,
+                    'custom_parameter_1': 'all_stores_mode'
+                });
+            }
+
+            updateDebugInfo(`<strong>✅ ${placesToShow.length}件表示</strong> (未訪問: ${unvisitedCount}件 / 訪問済み: ${visitedCount}件)`);
+
         } else {
             updateDebugInfo('<strong>⚠️ この周辺にはカレー店が見つかりませんでした</strong> 地図を移動してみてください');
         }
@@ -433,6 +419,11 @@ function createNewMarker(place) {
         const markerContent = document.createElement('div');
         markerContent.className = 'custom-marker';
 
+        // 訪問済みの場合は半透明クラスを追加
+        if (isVisited) {
+            markerContent.classList.add('visited-marker');
+        }
+
         // アニメーション用のラッパーdiv
         const animationWrapper = document.createElement('div');
         animationWrapper.className = 'marker-animation-wrapper';
@@ -492,6 +483,11 @@ function createSimpleMarker(place) {
     // フォールバックでも可能な限りAdvanced Markerを使用
     const markerContent = document.createElement('div');
     markerContent.className = 'custom-marker';
+
+    // 訪問済みの場合は半透明クラスを追加
+    if (isVisited) {
+        markerContent.classList.add('visited-marker');
+    }
 
     const animationWrapper = document.createElement('div');
     animationWrapper.className = 'marker-animation-wrapper';

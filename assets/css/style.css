@@ -264,6 +264,11 @@ body {
     position: relative;
 }
 
+/* 訪問済みマーカー（半透明） */
+.custom-marker.visited-marker {
+    opacity: 0.6;
+}
+
 /* アニメーションラッパー */
 .marker-animation-wrapper {
     animation: markerScaleIn 0.3s ease-out forwards;
