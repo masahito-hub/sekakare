@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プライバシーポリシー - セカカレ</title>
+    <meta name="description" content="セカカレのプライバシーポリシー。Google Analyticsの使用、位置情報の取得、ローカルストレージの利用について説明します。">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div class="privacy-container">
+        <h1>プライバシーポリシー</h1>
+
+        <section class="privacy-section">
+            <h2>1. はじめに</h2>
+            <p>セカカレ（以下、「当サービス」）は、ユーザーの皆様のプライバシーを尊重し、個人情報の保護に努めます。本プライバシーポリシーでは、当サービスにおける情報の取得・利用について説明します。</p>
+        </section>
+
+        <section class="privacy-section">
+            <h2>2. Google Analyticsの使用</h2>
+            <p>当サービスでは、サービスの改善とユーザー体験の向上を目的として、Google Analyticsを使用しています。Google Analyticsは、Cookieを使用してユーザーの行動データを収集します。</p>
+            <p>収集される情報には以下が含まれます：</p>
+            <ul>
+                <li>ページビュー数</li>
+                <li>訪問回数</li>
+                <li>滞在時間</li>
+                <li>参照元</li>
+                <li>デバイス情報（ブラウザ、OS、画面サイズなど）</li>
+            </ul>
+            <p>Google Analyticsによる情報収集を無効にしたい場合は、<a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer">Google Analyticsオプトアウトアドオン</a>をご利用ください。</p>
+        </section>
+
+        <section class="privacy-section">
+            <h2>3. Cookieの使用</h2>
+            <p>当サービスでは、以下の目的でCookieを使用しています：</p>
+            <ul>
+                <li>Google Analyticsによるアクセス解析</li>
+                <li>ユーザーエクスペリエンスの向上</li>
+            </ul>
+            <p>ブラウザの設定でCookieを無効にすることができますが、一部機能が正常に動作しない可能性があります。</p>
+        </section>
+
+        <section class="privacy-section">
+            <h2>4. 位置情報の取得</h2>
+            <p>当サービスでは、より便利なカレー店検索機能を提供するため、ユーザーの位置情報を取得します。</p>
+            <p>位置情報の利用目的：</p>
+            <ul>
+                <li>ユーザーの現在地周辺のカレー店を表示</li>
+                <li>地図上での現在地表示</li>
+                <li>訪問記録との距離計算</li>
+            </ul>
+            <p>位置情報の取得は、ユーザーのブラウザで許可された場合のみ行われます。位置情報はサーバーに送信されず、ブラウザ内でのみ使用されます。</p>
+        </section>
+
+        <section class="privacy-section">
+            <h2>5. ローカルストレージの利用</h2>
+            <p>当サービスでは、以下の情報をブラウザのローカルストレージに保存します：</p>
+            <ul>
+                <li>訪問したカレー店の記録</li>
+                <li>ヒートマップデータ</li>
+                <li>達成済みアチーブメント情報</li>
+            </ul>
+            <p>これらの情報は、ユーザーのデバイス上にのみ保存され、サーバーには送信されません。ブラウザのキャッシュをクリアすると、これらの情報は削除されます。</p>
+        </section>
+
+        <section class="privacy-section">
+            <h2>6. 第三者への情報提供</h2>
+            <p>当サービスは、法令に基づく場合を除き、ユーザーの個人情報を第三者に提供することはありません。ただし、Google Analyticsによる匿名化された統計データは、Googleのプライバシーポリシーに従って処理されます。</p>
+        </section>
+
+        <section class="privacy-section">
+            <h2>7. プライバシーポリシーの変更</h2>
+            <p>当サービスは、必要に応じて本プライバシーポリシーを変更することがあります。変更後のプライバシーポリシーは、本ページに掲載した時点で効力を生じるものとします。</p>
+        </section>
+
+        <section class="privacy-section">
+            <h2>8. お問い合わせ</h2>
+            <p>本プライバシーポリシーに関するご質問は、GitHubリポジトリのIssueにてお問い合わせください。</p>
+        </section>
+
+        <div class="privacy-footer">
+            <a href="index.html" class="btn-back">ホームへ戻る</a>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; <span id="footer-year">2024</span> セカカレ. All rights reserved.</p>
+            <p><a href="privacy.html">プライバシーポリシー</a></p>
+        </div>
+    </footer>
+
+    <script>
+        // フッターの著作権年を動的に設定
+        document.addEventListener('DOMContentLoaded', function() {
+            const footerYear = document.getElementById('footer-year');
+            if (footerYear) {
+                footerYear.textContent = new Date().getFullYear();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -890,3 +890,11 @@ document.addEventListener('DOMContentLoaded', init);
 
 // Google Maps APIコールバック用のグローバル関数
 window.initMap = initMap;
+
+// フッターの著作権年を動的に設定
+document.addEventListener('DOMContentLoaded', function() {
+    const footerYear = document.getElementById('footer-year');
+    if (footerYear) {
+        footerYear.textContent = new Date().getFullYear();
+    }
+});
