@@ -6,6 +6,7 @@ let curryLogs = JSON.parse(localStorage.getItem(Config.storageKeys.curryLogs) ||
 let heatmapData = JSON.parse(localStorage.getItem(Config.storageKeys.heatmapData) || '{}');
 let markers = [];
 let heatmapCircles = [];
+let heatmapOverlay = null; // Canvas-based heatmap overlay
 let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievements) || '{}');
 let searchTimeout;
 let isManualSearch = false;  // 手動検索フラグを追加
@@ -628,6 +629,44 @@ function updateHeatmapData(placeId, lat, lng) {
 function displayHeatmap() {
     console.log('ヒートマップを表示中...');
 
+    // Check if HeatmapOverlay class is available
+    if (typeof HeatmapOverlay === 'undefined') {
+        console.warn('HeatmapOverlay class not loaded, falling back to circle-based heatmap');
+        displayHeatmapLegacy();
+        return;
+    }
+
+    // Convert heatmapData object to array format for HeatmapOverlay
+    const dataArray = Object.values(heatmapData).map(data => ({
+        lat: data.lat,
+        lng: data.lng,
+        count: data.count
+    }));
+
+    if (dataArray.length === 0) {
+        // Remove existing overlay if no data
+        if (heatmapOverlay) {
+            heatmapOverlay.setMap(null);
+            heatmapOverlay = null;
+        }
+        console.log('ヒートマップデータなし');
+        return;
+    }
+
+    // Create or update Canvas-based heatmap overlay
+    if (!heatmapOverlay) {
+        heatmapOverlay = new HeatmapOverlay(map, dataArray);
+        console.log(`Canvas-based ヒートマップを作成: ${dataArray.length} 箇所`);
+    } else {
+        heatmapOverlay.updateData(dataArray);
+        console.log(`Canvas-based ヒートマップを更新: ${dataArray.length} 箇所`);
+    }
+}
+
+// Legacy Circle-based heatmap (fallback)
+function displayHeatmapLegacy() {
+    console.log('Legacy Circle-based ヒートマップを表示中...');
+
     // 既存の円を削除
     heatmapCircles.forEach(circle => circle.setMap(null));
     heatmapCircles = [];
@@ -663,7 +702,7 @@ function displayHeatmap() {
         }
     });
 
-    console.log(`ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+    console.log(`Legacy ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
 }
 
 // ログを表示
