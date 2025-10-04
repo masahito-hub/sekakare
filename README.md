@@ -20,6 +20,7 @@
 - **データ保存**: localStorage（将来的にIndexedDB移行予定）
 - **デプロイ**: GitHub Actions → Xserver自動デプロイ
 - **開発ツール**: Claude Code + GitHub連携
+- **アナリティクス**: Google Analytics 4
 
 ## 主要機能
 
@@ -30,19 +31,25 @@
 - ✅ 動的検索半径（ズームレベル連動）
 - ✅ 新発見特化モード（訪問済み店舗を自動検索から除外）
 - ✅ ヘッダーティッカー（ニュース配信・広告枠）
+- ✅ フッター（コピーライト表示）
+- ✅ プライバシーポリシーページ
+- ✅ ハンバーガーメニュー（アクセシビリティ対応）
+- ✅ favicon/PWAアイコン設定
 
 ### 開発予定機能
 - 📝 日付・メニュー・写真・メモの記録機能
 - 📝 IndexedDBへのデータ移行
 - 📝 地図以外での訪問履歴一覧ページ
 - 📝 バックアップ・インポート機能
+- 📝 利用規約ページ
+- 📝 お問い合わせページ
 
 ## 開発フロー
 
 確立された開発フローにより、効率的な機能追加が可能です：
 
 1. **masahito-hub**: 企画・相談・PR判断
-2. **Claude Code**: 実装・ブランチ作成・PR作成
+2. **Claude Code**: 実装・ブランチ作成・PR作成・自動レビュー
 3. **Web Claude**: 設計相談・コードレビュー・改善提案
 4. **GitHub Actions**: 自動デプロイ（APIキー自動注入）
 
@@ -58,6 +65,7 @@
 - 必要なライブラリは`/assets/js/`にローカル配置すること
 - `.htaccess`のCSP設定を適切に管理
 - 新しいAPIやライブラリ追加時はCSP設定の更新を確認
+- **インラインスタイル・スクリプトは使用禁止**
 
 ### Google Places API制約
 - **20件/リクエスト上限**、ページネーション非対応
@@ -96,22 +104,42 @@ GitHub Actionsが自動的に本番環境へデプロイします。
 ```
 sekakare/
 ├── index.html              # メインHTML
+├── privacy.html            # プライバシーポリシー
+├── manifest.json           # PWA設定
 ├── assets/
 │   ├── css/
 │   │   └── style.css       # スタイルシート
 │   ├── js/
 │   │   ├── app.js          # メインロジック
 │   │   ├── ticker.js       # ティッカー機能
+│   │   ├── menu.js         # ハンバーガーメニュー
 │   │   ├── config.js       # APIキー（.gitignore）
 │   │   ├── config.template.js  # 設定テンプレート
 │   │   └── papaparse.min.js    # CSV解析ライブラリ
-│   └── data/
-│       └── ticker-data.csv # ニュース配信用データ
+│   ├── data/
+│   │   └── ticker-data.csv # ニュース配信用データ
+│   └── icons/              # favicon・アプリアイコン
+│       ├── favicon.ico
+│       ├── apple-touch-icon.png
+│       └── android-chrome-*.png
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml      # 自動デプロイ設定
-└── .htaccess               # SSL・CSP設定
+├── .htaccess               # SSL・CSP設定
+└── CHANGELOG.md            # 変更履歴
+
 ```
+
+## 最近の更新（2024年10月）
+
+### v0.4.0
+- ハンバーガーメニューの実装
+  - アクセシビリティ対応（ARIA属性、キーボード操作）
+  - フォーカストラップ実装
+  - レスポンシブ対応
+- フッターとプライバシーポリシーページ追加
+- PWA基本設定（manifest.json）
+- favicon/アイコン設定の復旧と最適化
 
 ## トラブルシューティング
 
@@ -130,6 +158,11 @@ sekakare/
 **3. 訪問済み店舗が表示されない**
 - 新発見特化モードが有効の場合、意図的に除外されます
 - 再訪問記録については別途機能追加予定
+
+**4. ハンバーガーメニューが動作しない**
+- CSPエラーを確認（インラインスクリプトは禁止）
+- menu.jsが正しく読み込まれているか確認
+- コンソールでJavaScriptエラーを確認
 
 ## ライセンス
 
