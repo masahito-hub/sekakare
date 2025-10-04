@@ -8,6 +8,32 @@
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
+    <div class="header">
+        <h1>🍛 セカカレ</h1>
+        <p>世界をカレーで塗り尽くそう！あなたのカレー体験を記録</p>
+
+        <!-- ハンバーガーメニューボタン -->
+        <button class="hamburger" id="hamburgerBtn" aria-label="メニューを開く" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </div>
+
+    <!-- メニューオーバーレイ -->
+    <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
+
+    <!-- スライドメニュー -->
+    <nav class="slide-menu" id="slideMenu" aria-label="メインメニュー" aria-hidden="true">
+        <button class="menu-close" id="menuClose" aria-label="メニューを閉じる">×</button>
+        <ul class="menu-list">
+            <li><a href="/">🏠 ホーム</a></li>
+            <li><a href="/privacy.html">🔒 プライバシーポリシー</a></li>
+            <li><a href="#" id="aboutLink">ℹ️ セカカレについて</a></li>
+            <li><a href="https://x.com/sekakare" target="_blank" rel="noopener noreferrer">𝕏 公式アカウント</a></li>
+        </ul>
+    </nav>
+
     <div class="privacy-container">
         <h1>プライバシーポリシー</h1>
 
@@ -89,6 +115,9 @@
             <p><a href="privacy.html">プライバシーポリシー</a></p>
         </div>
     </footer>
+
+    <!-- ハンバーガーメニューJS -->
+    <script src="assets/js/menu.js"></script>
 
     <script>
         // フッターの著作権年を動的に設定
