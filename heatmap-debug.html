@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ヒートマップ デバッグツール - セカカレ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff8c00, #ffa500);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #ff6b00;
+            margin-bottom: 10px;
+        }
+
+        .description {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #ff6b00;
+            font-size: 18px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #ff8c00;
+            padding-bottom: 5px;
+        }
+
+        .param-group {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .param-label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .param-description {
+            grid-column: 2;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        input[type="number"] {
+            width: 150px;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        input[type="number"]:focus {
+            border-color: #ff8c00;
+            outline: none;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-save {
+            background: #ff8c00;
+            color: white;
+        }
+
+        .btn-save:hover {
+            background: #ff6b00;
+        }
+
+        .btn-reset {
+            background: #ddd;
+            color: #333;
+        }
+
+        .btn-reset:hover {
+            background: #ccc;
+        }
+
+        .btn-back {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-back:hover {
+            background: #45a049;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .current-values {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍛 ヒートマップ デバッグツール</h1>
+        <p class="description">
+            Canvas-based ヒートマップの描画パラメータを調整できます。<br>
+            パラメータを変更後、「保存して適用」ボタンを押してから、メインページをリロードしてください。
+        </p>
+
+        <div id="currentValues" class="current-values"></div>
+
+        <div class="section">
+            <h2>ズーム連動半径パラメータ</h2>
+            <div class="param-group">
+                <label class="param-label">z_ref</label>
+                <input type="number" id="z_ref" step="1" min="1" max="20">
+            </div>
+            <div class="param-description">基準ズームレベル（推奨: 14）</div>
+
+            <div class="param-group">
+                <label class="param-label">r_base</label>
+                <input type="number" id="r_base" step="1" min="1" max="100">
+            </div>
+            <div class="param-description">基準半径 [px]（推奨: 14）</div>
+
+            <div class="param-group">
+                <label class="param-label">k</label>
+                <input type="number" id="k" step="0.01" min="1" max="2">
+            </div>
+            <div class="param-description">広域側の伸び係数（推奨: 1.28）</div>
+
+            <div class="param-group">
+                <label class="param-label">r_min_px</label>
+                <input type="number" id="r_min_px" step="1" min="1" max="100">
+            </div>
+            <div class="param-description">最小画面半径 [px]（推奨: 16）</div>
+
+            <div class="param-group">
+                <label class="param-label">r_max_px</label>
+                <input type="number" id="r_max_px" step="1" min="1" max="200">
+            </div>
+            <div class="param-description">最大画面半径 [px]（推奨: 48）</div>
+        </div>
+
+        <div class="section">
+            <h2>密度ベース透明度</h2>
+            <div class="param-group">
+                <label class="param-label">alpha_base</label>
+                <input type="number" id="alpha_base" step="0.05" min="0" max="1">
+            </div>
+            <div class="param-description">基本透明度（推奨: 0.55）</div>
+
+            <div class="param-group">
+                <label class="param-label">tau</label>
+                <input type="number" id="tau" step="1" min="0" max="10">
+            </div>
+            <div class="param-description">孤立ブーストの閾値（推奨: 3）</div>
+
+            <div class="param-group">
+                <label class="param-label">isolation_boost</label>
+                <input type="number" id="isolation_boost" step="0.05" min="1" max="3">
+            </div>
+            <div class="param-description">孤立ブースト倍率（推奨: 1.25）</div>
+        </div>
+
+        <div class="section">
+            <h2>LCH色マップ（黄→琥珀）</h2>
+            <h3 style="margin-top: 10px; margin-bottom: 10px; font-size: 14px;">淡い黄色（最薄）</h3>
+            <div class="param-group">
+                <label class="param-label">color_light_L</label>
+                <input type="number" id="color_light_L" step="1" min="0" max="100">
+            </div>
+            <div class="param-description">明度（推奨: 95）</div>
+
+            <div class="param-group">
+                <label class="param-label">color_light_C</label>
+                <input type="number" id="color_light_C" step="1" min="0" max="150">
+            </div>
+            <div class="param-description">彩度（推奨: 45）</div>
+
+            <div class="param-group">
+                <label class="param-label">color_light_H</label>
+                <input type="number" id="color_light_H" step="1" min="0" max="360">
+            </div>
+            <div class="param-description">色相（推奨: 95）</div>
+
+            <h3 style="margin-top: 20px; margin-bottom: 10px; font-size: 14px;">琥珀色（最濃）</h3>
+            <div class="param-group">
+                <label class="param-label">color_dark_L</label>
+                <input type="number" id="color_dark_L" step="1" min="0" max="100">
+            </div>
+            <div class="param-description">明度（推奨: 72）</div>
+
+            <div class="param-group">
+                <label class="param-label">color_dark_C</label>
+                <input type="number" id="color_dark_C" step="1" min="0" max="150">
+            </div>
+            <div class="param-description">彩度（推奨: 65）</div>
+
+            <div class="param-group">
+                <label class="param-label">color_dark_H</label>
+                <input type="number" id="color_dark_H" step="1" min="0" max="360">
+            </div>
+            <div class="param-description">色相（推奨: 80）</div>
+
+            <div class="param-group">
+                <label class="param-label">gamma</label>
+                <input type="number" id="gamma" step="0.05" min="0.5" max="3">
+            </div>
+            <div class="param-description">ガンマ補正（推奨: 1.45）</div>
+        </div>
+
+        <div class="section">
+            <h2>正規化とパフォーマンス</h2>
+            <div class="param-group">
+                <label class="param-label">percentile_low</label>
+                <input type="number" id="percentile_low" step="1" min="0" max="50">
+            </div>
+            <div class="param-description">下限パーセンタイル（推奨: 5）</div>
+
+            <div class="param-group">
+                <label class="param-label">percentile_high</label>
+                <input type="number" id="percentile_high" step="1" min="50" max="100">
+            </div>
+            <div class="param-description">上限パーセンタイル（推奨: 95）</div>
+
+            <div class="param-group">
+                <label class="param-label">debounce_ms</label>
+                <input type="number" id="debounce_ms" step="50" min="0" max="1000">
+            </div>
+            <div class="param-description">デバウンス時間 [ms]（推奨: 150）</div>
+        </div>
+
+        <div class="buttons">
+            <button class="btn-save" onclick="saveParams()">💾 保存して適用</button>
+            <button class="btn-reset" onclick="resetParams()">🔄 デフォルトに戻す</button>
+            <button class="btn-back" onclick="goBack()">🏠 メインページへ</button>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        const defaultParams = {
+            z_ref: 14,
+            r_base: 14,
+            k: 1.28,
+            r_min_px: 16,
+            r_max_px: 48,
+            alpha_base: 0.55,
+            tau: 3,
+            isolation_boost: 1.25,
+            color_light_L: 95,
+            color_light_C: 45,
+            color_light_H: 95,
+            color_dark_L: 72,
+            color_dark_C: 65,
+            color_dark_H: 80,
+            gamma: 1.45,
+            percentile_low: 5,
+            percentile_high: 95,
+            debounce_ms: 150
+        };
+
+        function loadParams() {
+            const saved = localStorage.getItem('sekakare_heatmap_params');
+            const params = saved ? JSON.parse(saved) : defaultParams;
+
+            for (const key in params) {
+                const input = document.getElementById(key);
+                if (input) {
+                    input.value = params[key];
+                }
+            }
+
+            displayCurrentValues(params);
+        }
+
+        function displayCurrentValues(params) {
+            const div = document.getElementById('currentValues');
+            div.textContent = '現在のパラメータ:\n' + JSON.stringify(params, null, 2);
+        }
+
+        function saveParams() {
+            const params = {};
+
+            for (const key in defaultParams) {
+                const input = document.getElementById(key);
+                if (input) {
+                    params[key] = parseFloat(input.value);
+                }
+            }
+
+            localStorage.setItem('sekakare_heatmap_params', JSON.stringify(params));
+
+            const status = document.getElementById('status');
+            status.className = 'status success';
+            status.textContent = '✅ パラメータを保存しました！メインページをリロードして変更を確認してください。';
+            status.style.display = 'block';
+
+            displayCurrentValues(params);
+
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+
+        function resetParams() {
+            if (confirm('パラメータをデフォルト値に戻しますか？')) {
+                localStorage.removeItem('sekakare_heatmap_params');
+
+                for (const key in defaultParams) {
+                    const input = document.getElementById(key);
+                    if (input) {
+                        input.value = defaultParams[key];
+                    }
+                }
+
+                displayCurrentValues(defaultParams);
+
+                const status = document.getElementById('status');
+                status.className = 'status info';
+                status.textContent = 'ℹ️ デフォルト値に戻しました。「保存して適用」を押して確定してください。';
+                status.style.display = 'block';
+
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function goBack() {
+            window.location.href = '/';
+        }
+
+        // Load params on page load
+        loadParams();
+    </script>
+</body>
+</html>
