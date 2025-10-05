@@ -2,11 +2,24 @@
 
 let map;
 let currentPlace = null;
-let curryLogs = JSON.parse(localStorage.getItem(Config.storageKeys.curryLogs) || '[]');
-let heatmapData = JSON.parse(localStorage.getItem(Config.storageKeys.heatmapData) || '{}');
+
+// localStorage parseエラーハンドリング
+function safeJSONParse(key, fallback) {
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : fallback;
+    } catch (error) {
+        console.error(`localStorage parse error for ${key}:`, error);
+        return fallback;
+    }
+}
+
+let curryLogs = safeJSONParse(Config.storageKeys.curryLogs, []);
+let heatmapData = safeJSONParse(Config.storageKeys.heatmapData, {});
 let markers = [];
 let heatmapCircles = [];
-let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievements) || '{}');
+let heatmapOverlay = null;  // Canvas-based heatmap overlay
+let achievements = safeJSONParse(Config.storageKeys.achievements, {});
 let searchTimeout;
 let isManualSearch = false;  // 手動検索フラグを追加
 
@@ -628,42 +641,78 @@ function updateHeatmapData(placeId, lat, lng) {
 function displayHeatmap() {
     console.log('ヒートマップを表示中...');
 
-    // 既存の円を削除
-    heatmapCircles.forEach(circle => circle.setMap(null));
-    heatmapCircles = [];
-
-    // 各場所に円を表示
-    Object.values(heatmapData).forEach(data => {
-        const baseOpacity = Math.min(Config.settings.heatmap.minOpacity + (data.count * 0.15), Config.settings.heatmap.maxOpacity);
-        const baseRadius = Config.settings.heatmap.baseRadius + (data.count * Config.settings.heatmap.radiusIncrement);
-
-        // グラデーション効果のために複数の同心円を作成
-        const gradientLayers = 8; // グラデーションの層数
-        for (let i = 0; i < gradientLayers; i++) {
-            const layerRatio = (gradientLayers - i) / gradientLayers;
-            const layerRadius = baseRadius * layerRatio;
-
-            // 中心から外側に向かって透明度を下げる
-            // 中心部は濃く、外縁は透明に近づく
-            const layerOpacity = baseOpacity * Math.pow(layerRatio, 2.5); // 指数関数でより自然なフェードアウト
-
-            const circle = new google.maps.Circle({
-                strokeColor: 'transparent', // 境界線を透明に
-                strokeOpacity: 0,
-                strokeWeight: 0,
-                fillColor: '#ff8c00',
-                fillOpacity: layerOpacity,
-                map: map,
-                center: { lat: data.lat, lng: data.lng },
-                radius: layerRadius,
-                clickable: false // クリックイベントを無効化
-            });
-
-            heatmapCircles.push(circle);
+    // Try Canvas-based heatmap first
+    if (typeof HeatmapOverlay !== 'undefined') {
+        // Remove old overlay if exists
+        if (heatmapOverlay) {
+            heatmapOverlay.setMap(null);
+            heatmapOverlay = null;
         }
-    });
 
-    console.log(`ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+        // Remove old circles
+        heatmapCircles.forEach(circle => circle.setMap(null));
+        heatmapCircles = [];
+
+        // Convert heatmapData to array format
+        const heatmapArray = Object.values(heatmapData);
+
+        if (heatmapArray.length > 0) {
+            // Load custom parameters from localStorage if available
+            let customParams = {};
+            try {
+                const savedParams = localStorage.getItem('sekakare_heatmap_params');
+                if (savedParams) {
+                    customParams = JSON.parse(savedParams);
+                }
+            } catch (error) {
+                console.warn('Failed to load custom heatmap params:', error);
+            }
+
+            // Create Canvas-based heatmap
+            heatmapOverlay = new HeatmapOverlay(map, heatmapArray, customParams);
+            console.log(`Canvas-based ヒートマップ ${heatmapArray.length} 箇所を表示`);
+        }
+    } else {
+        // Fallback to Circle-based heatmap
+        console.warn('HeatmapOverlay not available, falling back to Circle-based heatmap');
+
+        // 既存の円を削除
+        heatmapCircles.forEach(circle => circle.setMap(null));
+        heatmapCircles = [];
+
+        // 各場所に円を表示
+        Object.values(heatmapData).forEach(data => {
+            const baseOpacity = Math.min(Config.settings.heatmap.minOpacity + (data.count * 0.15), Config.settings.heatmap.maxOpacity);
+            const baseRadius = Config.settings.heatmap.baseRadius + (data.count * Config.settings.heatmap.radiusIncrement);
+
+            // グラデーション効果のために複数の同心円を作成
+            const gradientLayers = 8; // グラデーションの層数
+            for (let i = 0; i < gradientLayers; i++) {
+                const layerRatio = (gradientLayers - i) / gradientLayers;
+                const layerRadius = baseRadius * layerRatio;
+
+                // 中心から外側に向かって透明度を下げる
+                // 中心部は濃く、外縁は透明に近づく
+                const layerOpacity = baseOpacity * Math.pow(layerRatio, 2.5); // 指数関数でより自然なフェードアウト
+
+                const circle = new google.maps.Circle({
+                    strokeColor: 'transparent', // 境界線を透明に
+                    strokeOpacity: 0,
+                    strokeWeight: 0,
+                    fillColor: '#ff8c00',
+                    fillOpacity: layerOpacity,
+                    map: map,
+                    center: { lat: data.lat, lng: data.lng },
+                    radius: layerRadius,
+                    clickable: false // クリックイベントを無効化
+                });
+
+                heatmapCircles.push(circle);
+            }
+        });
+
+        console.log(`Circle-based ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+    }
 }
 
 // ログを表示
