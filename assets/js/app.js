@@ -6,6 +6,7 @@ let curryLogs = JSON.parse(localStorage.getItem(Config.storageKeys.curryLogs) ||
 let heatmapData = JSON.parse(localStorage.getItem(Config.storageKeys.heatmapData) || '{}');
 let markers = [];
 let heatmapCircles = [];
+let heatmapOverlay = null;  // Canvas版ヒートマップオーバーレイ
 let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievements) || '{}');
 let searchTimeout;
 let isManualSearch = false;  // 手動検索フラグを追加
@@ -626,7 +627,41 @@ function updateHeatmapData(placeId, lat, lng) {
 
 // ヒートマップを表示
 function displayHeatmap() {
-    console.log('ヒートマップを表示中...');
+    console.log('[displayHeatmap] 開始...');
+
+    // HeatmapOverlayクラスが利用可能かチェック
+    if (typeof HeatmapOverlay === 'undefined') {
+        console.warn('[displayHeatmap] HeatmapOverlay not loaded yet, falling back to Circle mode');
+        displayHeatmapCircles();
+        return;
+    }
+
+    // 既存のオーバーレイを削除
+    if (heatmapOverlay) {
+        console.log('[displayHeatmap] Removing existing overlay');
+        heatmapOverlay.setMap(null);
+        heatmapOverlay = null;
+    }
+
+    // データを配列形式に変換
+    const heatmapPoints = Object.values(heatmapData);
+
+    if (heatmapPoints.length === 0) {
+        console.log('[displayHeatmap] No heatmap data to display');
+        return;
+    }
+
+    console.log(`[displayHeatmap] Creating overlay with ${heatmapPoints.length} points`);
+
+    // 新しいオーバーレイを作成
+    heatmapOverlay = new HeatmapOverlay(map, heatmapPoints);
+
+    console.log('[displayHeatmap] 完了');
+}
+
+// Circle版ヒートマップのフォールバック
+function displayHeatmapCircles() {
+    console.log('[displayHeatmapCircles] Circle mode fallback');
 
     // 既存の円を削除
     heatmapCircles.forEach(circle => circle.setMap(null));
@@ -663,7 +698,7 @@ function displayHeatmap() {
         }
     });
 
-    console.log(`ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+    console.log(`[displayHeatmapCircles] ${Object.keys(heatmapData).length} 箇所を表示`);
 }
 
 // ログを表示
@@ -846,6 +881,25 @@ function loadGoogleMaps() {
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${Config.API_KEY}&libraries=places,marker&callback=initMap`;
     script.async = true;
+    script.onload = () => {
+        console.log('✅ Google Maps API loaded');
+
+        // heatmap-overlay.jsを読み込み
+        const heatmapScript = document.createElement('script');
+        heatmapScript.src = 'assets/js/heatmap-overlay.js';
+        heatmapScript.onload = () => {
+            console.log('✅ HeatmapOverlay loaded');
+            // 地図が初期化済みの場合のみ表示
+            if (map && typeof displayHeatmap === 'function') {
+                displayHeatmap();
+            }
+        };
+        heatmapScript.onerror = () => {
+            console.error('heatmap-overlay.jsの読み込みに失敗しました');
+            updateDebugInfo('❌ ヒートマップの読み込みに失敗しました');
+        };
+        document.head.appendChild(heatmapScript);
+    };
     script.onerror = () => {
         console.error('Google Maps APIの読み込みに失敗しました');
         updateDebugInfo('❌ Google Maps APIの読み込みに失敗しました');
