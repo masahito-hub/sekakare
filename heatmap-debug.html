@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ヒートマップデバッグツール - セカカレ</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #ff6b35;
+            margin-top: 0;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #ff6b35;
+            padding-bottom: 8px;
+        }
+        .param-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        input[type="number"], input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .value-display {
+            display: inline-block;
+            margin-left: 10px;
+            font-weight: bold;
+            color: #ff6b35;
+        }
+        button {
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #e55a2b;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .warning {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        #map {
+            height: 500px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ ヒートマップデバッグツール</h1>
+        <p>パラメータをリアルタイムで調整できます。変更はlocalStorageに保存され、メインアプリでも反映されます。</p>
+    </div>
+
+    <div class="container">
+        <h2>ズーム連動半径</h2>
+        <div class="param-group">
+            <label>基準ズームレベル (z_ref): <span class="value-display" id="z_ref_val">14</span></label>
+            <input type="range" id="z_ref" min="10" max="18" step="1" value="14">
+        </div>
+        <div class="param-group">
+            <label>基準半径 (r_base) [px]: <span class="value-display" id="r_base_val">14</span></label>
+            <input type="range" id="r_base" min="8" max="24" step="1" value="14">
+        </div>
+        <div class="param-group">
+            <label>広域側の伸び係数 (k): <span class="value-display" id="k_val">1.28</span></label>
+            <input type="range" id="k" min="1.2" max="1.4" step="0.01" value="1.28">
+        </div>
+        <div class="param-group">
+            <label>最小画面半径 (r_min_px) [px]: <span class="value-display" id="r_min_px_val">16</span></label>
+            <input type="range" id="r_min_px" min="8" max="24" step="1" value="16">
+        </div>
+        <div class="param-group">
+            <label>最大画面半径 (r_max_px) [px]: <span class="value-display" id="r_max_px_val">48</span></label>
+            <input type="range" id="r_max_px" min="32" max="64" step="1" value="48">
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>透明度調整</h2>
+        <div class="param-group">
+            <label>基本透明度 (alpha_base): <span class="value-display" id="alpha_base_val">0.55</span></label>
+            <input type="range" id="alpha_base" min="0.3" max="0.8" step="0.05" value="0.55">
+        </div>
+        <div class="param-group">
+            <label>孤立ブースト閾値 (tau): <span class="value-display" id="tau_val">3</span></label>
+            <input type="range" id="tau" min="1" max="6" step="1" value="3">
+        </div>
+        <div class="param-group">
+            <label>孤立ブースト倍率 (isolation_boost): <span class="value-display" id="isolation_boost_val">1.25</span></label>
+            <input type="range" id="isolation_boost" min="1.0" max="1.5" step="0.05" value="1.25">
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>色マップ (LCH)</h2>
+        <h3>淡い黄色（最薄）</h3>
+        <div class="param-group">
+            <label>L (明度): <span class="value-display" id="color_light_l_val">95</span></label>
+            <input type="range" id="color_light_l" min="80" max="100" step="1" value="95">
+        </div>
+        <div class="param-group">
+            <label>C (彩度): <span class="value-display" id="color_light_c_val">45</span></label>
+            <input type="range" id="color_light_c" min="30" max="60" step="1" value="45">
+        </div>
+        <div class="param-group">
+            <label>H (色相): <span class="value-display" id="color_light_h_val">95</span></label>
+            <input type="range" id="color_light_h" min="80" max="110" step="1" value="95">
+        </div>
+
+        <h3>琥珀色（最濃）</h3>
+        <div class="param-group">
+            <label>L (明度): <span class="value-display" id="color_dark_l_val">72</span></label>
+            <input type="range" id="color_dark_l" min="60" max="80" step="1" value="72">
+        </div>
+        <div class="param-group">
+            <label>C (彩度): <span class="value-display" id="color_dark_c_val">65</span></label>
+            <input type="range" id="color_dark_c" min="50" max="80" step="1" value="65">
+        </div>
+        <div class="param-group">
+            <label>H (色相): <span class="value-display" id="color_dark_h_val">80</span></label>
+            <input type="range" id="color_dark_h" min="70" max="90" step="1" value="80">
+        </div>
+
+        <div class="param-group">
+            <label>ガンマ補正 (gamma): <span class="value-display" id="gamma_val">1.45</span></label>
+            <input type="range" id="gamma" min="1.0" max="2.0" step="0.05" value="1.45">
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>正規化</h2>
+        <div class="param-group">
+            <label>下限パーセンタイル (percentile_low) [%]: <span class="value-display" id="percentile_low_val">5</span></label>
+            <input type="range" id="percentile_low" min="0" max="10" step="1" value="5">
+        </div>
+        <div class="param-group">
+            <label>上限パーセンタイル (percentile_high) [%]: <span class="value-display" id="percentile_high_val">95</span></label>
+            <input type="range" id="percentile_high" min="90" max="99" step="1" value="95">
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>アクション</h2>
+        <button onclick="saveParams()">💾 パラメータを保存</button>
+        <button onclick="resetParams()">🔄 デフォルトに戻す</button>
+        <button onclick="loadParams()">📥 保存済み設定を読み込み</button>
+
+        <div class="info">
+            <strong>💡 使い方:</strong><br>
+            1. スライダーを調整してヒートマップの見た目を調整<br>
+            2. 「パラメータを保存」でlocalStorageに保存<br>
+            3. メインアプリ（index.html）で保存した設定が自動的に反映されます
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ セキュリティについて:</strong><br>
+            このページは本番環境では .htaccess でアクセス制限されています。<br>
+            開発環境でのみ使用してください。
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        const params = [
+            'z_ref', 'r_base', 'k', 'r_min_px', 'r_max_px',
+            'alpha_base', 'tau', 'isolation_boost',
+            'color_light_l', 'color_light_c', 'color_light_h',
+            'color_dark_l', 'color_dark_c', 'color_dark_h',
+            'gamma', 'percentile_low', 'percentile_high'
+        ];
+
+        // スライダーの変更を監視
+        params.forEach(param => {
+            const slider = document.getElementById(param);
+            const display = document.getElementById(param + '_val');
+
+            slider.addEventListener('input', () => {
+                display.textContent = slider.value;
+            });
+        });
+
+        function saveParams() {
+            const values = {};
+            params.forEach(param => {
+                const slider = document.getElementById(param);
+                values[param] = parseFloat(slider.value);
+            });
+            localStorage.setItem('heatmap_params', JSON.stringify(values));
+            alert('✅ パラメータを保存しました！メインアプリで反映されます。');
+        }
+
+        function resetParams() {
+            localStorage.removeItem('heatmap_params');
+            params.forEach(param => {
+                const slider = document.getElementById(param);
+                const display = document.getElementById(param + '_val');
+                slider.value = slider.getAttribute('value');
+                display.textContent = slider.value;
+            });
+            alert('🔄 デフォルト値に戻しました');
+        }
+
+        function loadParams() {
+            const saved = localStorage.getItem('heatmap_params');
+            if (saved) {
+                const values = JSON.parse(saved);
+                params.forEach(param => {
+                    if (values[param] !== undefined) {
+                        const slider = document.getElementById(param);
+                        const display = document.getElementById(param + '_val');
+                        slider.value = values[param];
+                        display.textContent = values[param];
+                    }
+                });
+                alert('📥 保存済み設定を読み込みました');
+            } else {
+                alert('⚠️ 保存済み設定が見つかりません');
+            }
+        }
+
+        // ページ読み込み時に保存済み設定を読み込み
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('heatmap_params');
+            if (saved) {
+                loadParams();
+            }
+        });
+    </script>
+</body>
+</html>
