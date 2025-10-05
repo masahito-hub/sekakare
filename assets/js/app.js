@@ -624,15 +624,42 @@ function updateHeatmapData(placeId, lat, lng) {
     localStorage.setItem(Config.storageKeys.heatmapData, JSON.stringify(heatmapData));
 }
 
+// ヒートマップオーバーレイ用の変数
+let heatmapOverlay = null;
+
 // ヒートマップを表示
 function displayHeatmap() {
     console.log('ヒートマップを表示中...');
 
-    // 既存の円を削除
+    // 既存のオーバーレイまたは円を削除
+    if (heatmapOverlay) {
+        heatmapOverlay.setMap(null);
+        heatmapOverlay = null;
+    }
     heatmapCircles.forEach(circle => circle.setMap(null));
     heatmapCircles = [];
 
-    // 各場所に円を表示
+    // Canvas実装を優先的に使用
+    if (typeof HeatmapOverlay !== 'undefined') {
+        // ヒートマップデータを配列形式に変換
+        const heatmapPoints = Object.values(heatmapData).map(data => ({
+            lat: data.lat,
+            lng: data.lng
+        }));
+
+        if (heatmapPoints.length > 0) {
+            // localStorageから保存済みパラメータを読み込み
+            const savedParams = localStorage.getItem('heatmap_params');
+            const params = savedParams ? JSON.parse(savedParams) : {};
+
+            heatmapOverlay = new HeatmapOverlay(map, heatmapPoints, params);
+            console.log(`Canvas版ヒートマップ ${heatmapPoints.length} 箇所を表示`);
+            return;
+        }
+    }
+
+    // フォールバック: Circle版ヒートマップ
+    console.log('Canvas版が利用できないため、Circle版を使用します');
     Object.values(heatmapData).forEach(data => {
         const baseOpacity = Math.min(Config.settings.heatmap.minOpacity + (data.count * 0.15), Config.settings.heatmap.maxOpacity);
         const baseRadius = Config.settings.heatmap.baseRadius + (data.count * Config.settings.heatmap.radiusIncrement);
@@ -663,7 +690,7 @@ function displayHeatmap() {
         }
     });
 
-    console.log(`ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+    console.log(`Circle版ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
 }
 
 // ログを表示
