@@ -2,11 +2,24 @@
 
 let map;
 let currentPlace = null;
-let curryLogs = JSON.parse(localStorage.getItem(Config.storageKeys.curryLogs) || '[]');
-let heatmapData = JSON.parse(localStorage.getItem(Config.storageKeys.heatmapData) || '{}');
+
+// Fix #4: localStorage parseエラーハンドリング
+function safeParseJSON(key, defaultValue) {
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+        console.warn(`Failed to parse localStorage key "${key}":`, error);
+        return defaultValue;
+    }
+}
+
+let curryLogs = safeParseJSON(Config.storageKeys.curryLogs, []);
+let heatmapData = safeParseJSON(Config.storageKeys.heatmapData, {});
 let markers = [];
 let heatmapCircles = [];
-let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievements) || '{}');
+let heatmapOverlay = null;  // Canvas Heatmap Overlay
+let achievements = safeParseJSON(Config.storageKeys.achievements, {});
 let searchTimeout;
 let isManualSearch = false;  // 手動検索フラグを追加
 
@@ -627,6 +640,44 @@ function updateHeatmapData(placeId, lat, lng) {
 // ヒートマップを表示
 function displayHeatmap() {
     console.log('ヒートマップを表示中...');
+
+    // Canvas実装を試行（フォールバック付き）
+    if (typeof HeatmapOverlay !== 'undefined' && window.HeatmapOverlay) {
+        try {
+            // 既存のオーバーレイを削除
+            if (heatmapOverlay) {
+                heatmapOverlay.setMap(null);
+                heatmapOverlay = null;
+            }
+
+            // データを配列形式に変換
+            const dataArray = Object.values(heatmapData);
+
+            if (dataArray.length > 0) {
+                // localStorageからカスタムパラメータを読み込み（デバッグツール用）
+                let customParams = {};
+                try {
+                    const storedParams = localStorage.getItem('sekakare_heatmap_params');
+                    if (storedParams) {
+                        customParams = JSON.parse(storedParams);
+                        console.log('カスタムヒートマップパラメータを適用:', customParams);
+                    }
+                } catch (e) {
+                    console.warn('カスタムパラメータの読み込みに失敗:', e);
+                }
+
+                // HeatmapOverlayを作成
+                heatmapOverlay = new HeatmapOverlay(map, dataArray, customParams);
+                console.log(`Canvas版ヒートマップ ${dataArray.length} 箇所を表示`);
+            }
+            return;
+        } catch (error) {
+            console.warn('Canvas版ヒートマップの作成に失敗、Circleにフォールバック:', error);
+        }
+    }
+
+    // フォールバック: Circle版ヒートマップ
+    console.log('Circle版ヒートマップを使用');
 
     // 既存の円を削除
     heatmapCircles.forEach(circle => circle.setMap(null));
