@@ -877,6 +877,17 @@ function loadGoogleMaps() {
         console.error('Google Maps APIの読み込みに失敗しました');
         updateDebugInfo('❌ Google Maps APIの読み込みに失敗しました');
     };
+
+    // Google Maps API読み込み後にheatmap-overlay.jsを読み込む
+    script.onload = () => {
+        const heatmapScript = document.createElement('script');
+        heatmapScript.src = 'assets/js/heatmap-overlay.js';
+        heatmapScript.onerror = () => {
+            console.error('heatmap-overlay.jsの読み込みに失敗しました');
+        };
+        document.head.appendChild(heatmapScript);
+    };
+
     document.head.appendChild(script);
 }
 
