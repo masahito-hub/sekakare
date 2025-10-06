@@ -142,6 +142,9 @@ function createMap(center, zoom) {
 
     // 実績システムを初期化
     initAchievements();
+
+    // URLパラメータからplaceIdを取得して該当店舗にズーム
+    handlePlaceIdFromURL();
 }
 
 // 自動検索の設定（条件付き実行）
@@ -682,12 +685,29 @@ function displayLogs() {
     // 最新の記録を上に表示
     const sortedLogs = [...curryLogs].reverse();
 
-    logList.innerHTML = sortedLogs.map(log => `
+    // 最大3件まで表示
+    const displayLimit = 3;
+    const logsToDisplay = sortedLogs.slice(0, displayLimit);
+
+    let html = logsToDisplay.map(log => `
         <div class="log-item">
             <div class="log-item-name">${log.name}</div>
             <div class="log-item-date">${log.date} - ${log.address}</div>
         </div>
     `).join('');
+
+    // 3件以上ある場合は「もっと見る」リンクを追加
+    if (sortedLogs.length > displayLimit) {
+        html += `
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="/logs.html" style="color: #ff6b00; text-decoration: none; font-size: 14px; font-weight: bold;">
+                    もっと見る (${sortedLogs.length}件) →
+                </a>
+            </div>
+        `;
+    }
+
+    logList.innerHTML = html;
 }
 
 // デバッグ情報を更新（ティッカーモード対応）
@@ -806,6 +826,52 @@ function updateAchievementDisplay() {
     `;
 
     logTitle.appendChild(stats);
+}
+
+// URLパラメータからplaceIdを取得して該当店舗にズーム
+function handlePlaceIdFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const placeId = params.get('placeId');
+
+    if (placeId) {
+        console.log('placeIdパラメータを検出:', placeId);
+
+        // localStorageから該当する訪問ログを検索
+        const visit = curryLogs.find(log => log.id === placeId);
+
+        if (visit) {
+            console.log('該当する訪問ログを発見:', visit.name);
+
+            // 地図を該当店舗の位置にズーム
+            const location = { lat: visit.lat, lng: visit.lng };
+            map.setCenter(location);
+            map.setZoom(16);
+
+            // マーカーを作成して表示
+            clearMarkers();
+            createNewMarker({
+                displayName: visit.name,
+                location: location,
+                formattedAddress: visit.address,
+                id: visit.id
+            });
+
+            // Google Analytics - ログからの遷移イベント
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'place_view_from_logs', {
+                    'event_category': 'navigation',
+                    'place_id': placeId,
+                    'place_name': visit.name,
+                    'event_label': visit.name
+                });
+            }
+        } else {
+            console.warn('該当する訪問ログが見つかりませんでした:', placeId);
+        }
+
+        // URLをクリーンアップ（パラメータを削除）
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 }
 
 // イベントリスナーの設定

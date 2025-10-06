@@ -1,0 +1,221 @@
+/**
+ * ログページ専用スタイル
+ * グランドルール準拠:
+ * - 背景: #F8F5F0
+ * - テキスト: メイン #3A2A0A、サブ #7B4A12
+ * - カード背景: #FFFFFF
+ */
+
+/* ログページ用のbody背景 */
+body {
+    background: #F8F5F0;
+}
+
+/* ログコンテナ */
+.logs-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #F8F5F0;
+    min-height: calc(100vh - 200px);
+}
+
+/* ログサマリー */
+#logSummary {
+    color: #3A2A0A;
+    opacity: 0.9;
+    font-size: 14px;
+}
+
+/* ログコンテンツエリア */
+#logsContent {
+    margin-top: 20px;
+}
+
+/* Empty State（ログ0件時） */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: #FFFFFF;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.empty-state-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.empty-state h2 {
+    color: #3A2A0A;
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.empty-state p {
+    color: #7B4A12;
+    font-size: 16px;
+    line-height: 1.8;
+    margin-bottom: 30px;
+}
+
+.btn-back-to-map {
+    display: inline-block;
+    padding: 12px 30px;
+    background-color: #ff6b00;
+    color: white;
+    text-decoration: none;
+    border-radius: 25px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-back-to-map:hover {
+    background-color: #ff8c00;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 月ヘッダー */
+.month-header {
+    color: #3A2A0A;
+    font-size: 20px;
+    font-weight: bold;
+    margin: 30px 0 15px 0;
+    padding-left: 10px;
+    border-left: 4px solid #ff6b00;
+}
+
+.month-header:first-child {
+    margin-top: 0;
+}
+
+/* ログカード */
+.log-card {
+    background: #FFFFFF;
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    border-left: 4px solid #ff8c00;
+}
+
+.log-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.log-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.log-card-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #3A2A0A;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.2s ease;
+    flex: 1;
+}
+
+.log-card-name:hover {
+    color: #ff6b00;
+    text-decoration: underline;
+}
+
+.log-card-date {
+    font-size: 14px;
+    color: #7B4A12;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.log-card-address {
+    font-size: 14px;
+    color: #7B4A12;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .logs-container {
+        padding: 15px;
+    }
+
+    .month-header {
+        font-size: 18px;
+    }
+
+    .log-card {
+        padding: 15px;
+    }
+
+    .log-card-name {
+        font-size: 16px;
+    }
+
+    .log-card-date,
+    .log-card-address {
+        font-size: 13px;
+    }
+
+    .empty-state {
+        padding: 40px 20px;
+    }
+
+    .empty-state-icon {
+        font-size: 48px;
+    }
+
+    .empty-state h2 {
+        font-size: 20px;
+    }
+
+    .empty-state p {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .logs-container {
+        padding: 10px;
+    }
+
+    .log-card-header {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .log-card-date {
+        align-self: flex-start;
+    }
+}
+
+/* スクロールバーのカスタマイズ（任意） */
+.logs-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.logs-container::-webkit-scrollbar-track {
+    background: #F8F5F0;
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+    background: #ff8c00;
+    border-radius: 4px;
+}
+
+.logs-container::-webkit-scrollbar-thumb:hover {
+    background: #ff6b00;
+}
