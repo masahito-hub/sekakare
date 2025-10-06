@@ -9,12 +9,22 @@
 (function() {
     'use strict';
 
+    console.log('menu.js loaded');
+
     // DOM要素の取得
     const hamburgerBtn = document.getElementById('hamburgerBtn');
     const menuOverlay = document.getElementById('menuOverlay');
     const slideMenu = document.getElementById('slideMenu');
     const menuClose = document.getElementById('menuClose');
     const aboutLink = document.getElementById('aboutLink');
+
+    console.log('DOM elements:', {
+        hamburgerBtn: hamburgerBtn,
+        menuOverlay: menuOverlay,
+        slideMenu: slideMenu,
+        menuClose: menuClose,
+        aboutLink: aboutLink
+    });
 
     // フォーカス可能要素のキャッシュ
     let focusableElementsCache = null;
@@ -26,6 +36,7 @@
      * メニューを開く
      */
     function openMenu() {
+        console.log('openMenu() called');
         slideMenu.classList.add('active');
         menuOverlay.classList.add('active');
         hamburgerBtn.classList.add('active');
@@ -49,6 +60,7 @@
      * メニューを閉じる
      */
     function closeMenu() {
+        console.log('closeMenu() called');
         slideMenu.classList.remove('active');
         menuOverlay.classList.remove('active');
         hamburgerBtn.classList.remove('active');
@@ -209,12 +221,28 @@
      * イベントリスナーの設定
      */
     function init() {
+        console.log('menu.js init() called');
+
+        // 必須要素のチェック
+        if (!hamburgerBtn || !slideMenu || !menuOverlay || !menuClose) {
+            console.error('Required menu elements not found!', {
+                hamburgerBtn: !!hamburgerBtn,
+                slideMenu: !!slideMenu,
+                menuOverlay: !!menuOverlay,
+                menuClose: !!menuClose
+            });
+            return;
+        }
+
         // ハンバーガーボタンクリック
         if (hamburgerBtn) {
             hamburgerBtn.addEventListener('click', function() {
+                console.log('Hamburger button clicked!');
                 if (slideMenu.classList.contains('active')) {
+                    console.log('Closing menu...');
                     closeMenu();
                 } else {
+                    console.log('Opening menu...');
                     openMenu();
                 }
             });
