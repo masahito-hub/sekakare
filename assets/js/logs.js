@@ -128,12 +128,12 @@ function groupByMonth(visits) {
 
         if (dateStr) {
             try {
-                // YYYY-MM-DD 形式を想定
-                const parts = dateStr.split(/[-T\s]/);
-                if (parts.length >= 2) {
-                    const year = parts[0];
-                    const month = parts[1];
-                    monthKey = `${year}年${parseInt(month, 10)}月`;
+                // YYYY-MM-DD または YYYY/MM/DD 形式から年月を抽出
+                const match = dateStr.match(/^(\d{4})[-\/](\d{1,2})/);
+                if (match) {
+                    const year = match[1];
+                    const month = parseInt(match[2], 10);
+                    monthKey = `${year}年${month}月`;
                 }
             } catch (error) {
                 console.error('日付解析エラー:', error, dateStr);
