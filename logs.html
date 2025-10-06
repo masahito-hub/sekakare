@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍛 ログ - セカカレ</title>
+    <meta name="description" content="あなたのカレー旅ログを時系列で振り返る">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/assets/icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16x16.png">
+
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png">
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#ff6b00">
+
+    <!-- CSSファイル -->
+    <link rel="stylesheet" href="assets/css/logs.css">
+
+    <!-- 共通ユーティリティ（XSS対策） -->
+    <script src="assets/js/utils.js"></script>
+
+    <!-- 設定ファイル（Config） -->
+    <script src="assets/js/config.js"></script>
+
+    <!-- ログページJS -->
+    <script src="assets/js/logs.js"></script>
+
+    <!-- ハンバーガーメニューJS -->
+    <script src="assets/js/menu.js"></script>
+</head>
+<body>
+    <!-- ヘッダー -->
+    <div class="header">
+        <h1>🍛 ログ</h1>
+        <p class="subtitle">
+            <span id="visitCount">0</span>杯のカレー履歴
+            <span id="dateRange"></span>
+        </p>
+
+        <!-- ハンバーガーメニューボタン -->
+        <button class="hamburger" id="hamburgerBtn" aria-label="メニューを開く" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </div>
+
+    <!-- メニューオーバーレイ -->
+    <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
+
+    <!-- スライドメニュー -->
+    <nav class="slide-menu" id="slideMenu" aria-label="メインメニュー" aria-hidden="true">
+        <button class="menu-close" id="menuClose" aria-label="メニューを閉じる">×</button>
+        <ul class="menu-list">
+            <li><a href="/">🏠 ホーム</a></li>
+            <li><a href="/logs.html">🍛 ログ</a></li>
+            <li><a href="/privacy.html">🔒 プライバシーポリシー</a></li>
+            <li><a href="#" id="aboutLink">ℹ️ セカカレについて</a></li>
+            <li><a href="https://x.com/sekakare" target="_blank" rel="noopener noreferrer">𝕏 公式アカウント</a></li>
+        </ul>
+    </nav>
+
+    <!-- コンテナ -->
+    <div class="container">
+        <div id="logsContainer">
+            <!-- ログまたは Empty State がここに表示される -->
+        </div>
+    </div>
+
+    <!-- フッター -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; <span id="footer-year">2024</span> セカカレ. All rights reserved.</p>
+            <p><a href="privacy.html">プライバシーポリシー</a></p>
+        </div>
+    </footer>
+
+    <script>
+        // フッターの著作権年を動的に設定
+        document.addEventListener('DOMContentLoaded', function() {
+            const footerYear = document.getElementById('footer-year');
+            if (footerYear) {
+                footerYear.textContent = new Date().getFullYear();
+            }
+        });
+    </script>
+</body>
+</html>
