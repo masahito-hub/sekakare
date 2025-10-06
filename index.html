@@ -56,6 +56,9 @@
     <!-- CSSファイル -->
     <link rel="stylesheet" href="assets/css/style.css">
 
+    <!-- 共通ユーティリティ（XSS対策） -->
+    <script src="assets/js/utils.js"></script>
+
     <!-- 設定ファイル（APIキー管理） -->
     <script src="assets/js/config.js"></script>
 
@@ -92,6 +95,7 @@
         <button class="menu-close" id="menuClose" aria-label="メニューを閉じる">×</button>
         <ul class="menu-list">
             <li><a href="/">🏠 ホーム</a></li>
+            <li><a href="/logs.html">🍛 ログ</a></li>
             <li><a href="/privacy.html">🔒 プライバシーポリシー</a></li>
             <li><a href="#" id="aboutLink">ℹ️ セカカレについて</a></li>
             <li><a href="https://x.com/sekakare" target="_blank" rel="noopener noreferrer">𝕏 公式アカウント</a></li>

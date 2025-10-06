@@ -142,6 +142,21 @@ function createMap(center, zoom) {
 
     // 実績システムを初期化
     initAchievements();
+
+    // URLパラメータからplaceIdを取得（ログページからの遷移対応）
+    const params = new URLSearchParams(window.location.search);
+    const placeId = params.get('placeId');
+    if (placeId) {
+        const visit = curryLogs.find(v => v.id === placeId);
+        if (visit) {
+            map.setCenter({ lat: visit.lat, lng: visit.lng });
+            map.setZoom(16);
+            console.log('ログページから遷移: placeId =', placeId);
+
+            // URLパラメータをクリーンアップ
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
 }
 
 // 自動検索の設定（条件付き実行）
@@ -682,12 +697,29 @@ function displayLogs() {
     // 最新の記録を上に表示
     const sortedLogs = [...curryLogs].reverse();
 
-    logList.innerHTML = sortedLogs.map(log => `
+    // 最大3件まで表示（それ以上は「もっと見る」リンク）
+    const maxDisplay = 3;
+    const logsToDisplay = sortedLogs.slice(0, maxDisplay);
+
+    let html = logsToDisplay.map(log => `
         <div class="log-item">
-            <div class="log-item-name">${log.name}</div>
-            <div class="log-item-date">${log.date} - ${log.address}</div>
+            <div class="log-item-name">${escapeHtml(log.name)}</div>
+            <div class="log-item-date">${escapeHtml(log.date)} - ${escapeHtml(log.address)}</div>
         </div>
     `).join('');
+
+    // 3件以上ある場合は「もっと見る」リンクを追加
+    if (curryLogs.length > maxDisplay) {
+        html += `
+            <div style="text-align: center; margin-top: 10px;">
+                <a href="/logs.html" style="color: #ff6b00; text-decoration: none; font-weight: bold;">
+                    もっと見る (${curryLogs.length - maxDisplay}件) →
+                </a>
+            </div>
+        `;
+    }
+
+    logList.innerHTML = html;
 }
 
 // デバッグ情報を更新（ティッカーモード対応）
