@@ -11,20 +11,12 @@
 
     console.log('menu.js loaded');
 
-    // DOM要素の取得
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    const menuOverlay = document.getElementById('menuOverlay');
-    const slideMenu = document.getElementById('slideMenu');
-    const menuClose = document.getElementById('menuClose');
-    const aboutLink = document.getElementById('aboutLink');
-
-    console.log('DOM elements:', {
-        hamburgerBtn: hamburgerBtn,
-        menuOverlay: menuOverlay,
-        slideMenu: slideMenu,
-        menuClose: menuClose,
-        aboutLink: aboutLink
-    });
+    // DOM要素の変数宣言（値はinit()で取得）
+    let hamburgerBtn;
+    let menuOverlay;
+    let slideMenu;
+    let menuClose;
+    let aboutLink;
 
     // フォーカス可能要素のキャッシュ
     let focusableElementsCache = null;
@@ -222,6 +214,21 @@
      */
     function init() {
         console.log('menu.js init() called');
+
+        // DOM要素の取得
+        hamburgerBtn = document.getElementById('hamburgerBtn');
+        menuOverlay = document.getElementById('menuOverlay');
+        slideMenu = document.getElementById('slideMenu');
+        menuClose = document.getElementById('menuClose');
+        aboutLink = document.getElementById('aboutLink');
+
+        console.log('DOM elements:', {
+            hamburgerBtn: hamburgerBtn,
+            menuOverlay: menuOverlay,
+            slideMenu: slideMenu,
+            menuClose: menuClose,
+            aboutLink: aboutLink
+        });
 
         // 必須要素のチェック
         if (!hamburgerBtn || !slideMenu || !menuOverlay || !menuClose) {
