@@ -6,6 +6,13 @@ const APP_NAME = (typeof Config !== 'undefined' && Config.APP_NAME) ? Config.APP
 // localStorageから訪問履歴を読み込み
 let visits = [];
 
+// モーダル関連のグローバル変数
+let editModal = null;
+let currentEditingLog = null;
+let focusableElements = [];
+let firstFocusableElement = null;
+let lastFocusableElement = null;
+
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', function() {
     initLogsPage();
@@ -16,6 +23,8 @@ function initLogsPage() {
     loadVisits();
     displayLogs();
     updateHeader();
+    setupModalElements();
+    setupModalListeners();
 }
 
 // 訪問履歴を読み込み（後方互換性あり）
@@ -91,7 +100,7 @@ function displayLogs() {
 
         logs.forEach(visit => {
             const visitDate = visit.createdAt || visit.date || '日付不明';
-            const placeId = visit.id || visit.place_id || '';
+            const placeId = visit.placeId || visit.id || visit.place_id || '';
             const name = visit.name || '店舗名不明';
             const address = visit.address || visit.vicinity || '住所不明';
 
@@ -101,6 +110,7 @@ function displayLogs() {
 
             html += `
                 <div class="log-card">
+                    <button class="edit-icon" data-place-id="${escapeHtml(placeId)}" aria-label="編集">✏️</button>
                     <h3>
                         <a href="/?placeId=${encodeURIComponent(placeId)}" class="shop-link">
                             ${escapeHtml(name)}
@@ -170,4 +180,134 @@ function updateHeader() {
             dateRange.textContent = `${firstDate} 〜 ${lastDate}`;
         }
     }
+}
+
+// モーダル要素を取得
+function setupModalElements() {
+    editModal = document.getElementById('editModal');
+}
+
+// モーダル関連のイベントリスナー設定
+function setupModalListeners() {
+    // 編集アイコンのクリック（イベント委譲）
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('edit-icon') || e.target.parentElement.classList.contains('edit-icon')) {
+            const button = e.target.classList.contains('edit-icon') ? e.target : e.target.parentElement;
+            const placeId = button.dataset.placeId;
+            if (placeId) {
+                openEditModal(placeId);
+            }
+        }
+    });
+
+    // 閉じるボタン
+    const modalClose = document.querySelector('.modal-close');
+    const modalCancel = document.getElementById('modalCancel');
+    const modalOverlay = document.querySelector('.modal-overlay');
+
+    if (modalClose) {
+        modalClose.addEventListener('click', closeEditModal);
+    }
+
+    if (modalCancel) {
+        modalCancel.addEventListener('click', closeEditModal);
+    }
+
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', closeEditModal);
+    }
+
+    // ESCキーで閉じる
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && editModal && editModal.style.display !== 'none') {
+            closeEditModal();
+        }
+    });
+
+    // フォーカストラップ
+    document.addEventListener('keydown', handleFocusTrap);
+
+    // 保存ボタン（Phase 1-B-2 で実装）
+    const modalSave = document.getElementById('modalSave');
+    if (modalSave) {
+        modalSave.addEventListener('click', saveEditedLog);
+    }
+}
+
+// モーダルを開く
+function openEditModal(placeId) {
+    const log = visits.find(l => (l.placeId || l.id || l.place_id) === placeId);
+    if (!log) {
+        console.error('Log not found:', placeId);
+        return;
+    }
+
+    currentEditingLog = log;
+
+    // モーダルにデータを設定
+    const modalStoreName = document.getElementById('modalStoreName');
+    const modalVisitedAt = document.getElementById('modalVisitedAt');
+    const modalMenu = document.getElementById('modalMenu');
+    const modalMemo = document.getElementById('modalMemo');
+
+    if (modalStoreName) modalStoreName.textContent = log.name || '店舗名不明';
+    if (modalVisitedAt) modalVisitedAt.value = log.visitedAt || log.date || '';
+    if (modalMenu) modalMenu.value = log.menu || '';
+    if (modalMemo) modalMemo.value = log.memo || '';
+
+    // モーダルを表示
+    editModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // 背景スクロール防止
+
+    // フォーカス可能要素を取得
+    updateFocusableElements();
+
+    // 最初の入力要素にフォーカス
+    if (modalVisitedAt) {
+        modalVisitedAt.focus();
+    }
+}
+
+// モーダルを閉じる
+function closeEditModal() {
+    if (!editModal) return;
+
+    editModal.style.display = 'none';
+    document.body.style.overflow = ''; // 背景スクロール復帰
+    currentEditingLog = null;
+    focusableElements = [];
+}
+
+// フォーカス可能要素を更新
+function updateFocusableElements() {
+    const focusableSelectors = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    focusableElements = Array.from(editModal.querySelectorAll(focusableSelectors));
+    firstFocusableElement = focusableElements[0];
+    lastFocusableElement = focusableElements[focusableElements.length - 1];
+}
+
+// フォーカストラップ
+function handleFocusTrap(e) {
+    if (!editModal || editModal.style.display === 'none') return;
+    if (e.key !== 'Tab') return;
+
+    if (e.shiftKey) {
+        // Shift + Tab
+        if (document.activeElement === firstFocusableElement) {
+            e.preventDefault();
+            lastFocusableElement.focus();
+        }
+    } else {
+        // Tab
+        if (document.activeElement === lastFocusableElement) {
+            e.preventDefault();
+            firstFocusableElement.focus();
+        }
+    }
+}
+
+// 保存処理（Phase 1-B-2 で実装予定）
+function saveEditedLog() {
+    console.log('保存処理は Phase 1-B-2 で実装します');
+    closeEditModal();
 }
