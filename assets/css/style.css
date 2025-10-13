@@ -466,6 +466,13 @@ body {
     transform: translateY(-8px) rotate(-45deg);
 }
 
+/* メニューが開いているときはハンバーガーボタンを非表示 */
+.hamburger.active {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
 /* メニューオーバーレイ */
 .menu-overlay {
     position: fixed;
