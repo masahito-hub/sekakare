@@ -481,6 +481,26 @@ body {
     outline-offset: 2px;
 }
 
+/* トースト通知のアニメーション */
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    20% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    80% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+}
+
 /* レスポンシブ対応 */
 @media (max-width: 600px) {
     .header h1 {

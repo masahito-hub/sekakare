@@ -12,6 +12,8 @@ let currentEditingLog = null;
 let focusableElements = [];
 let firstFocusableElement = null;
 let lastFocusableElement = null;
+let originalBodyOverflow = '';
+let lastFocusedElement = null;
 
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', function() {
@@ -21,13 +23,14 @@ document.addEventListener('DOMContentLoaded', function() {
 // ログページの初期化
 function initLogsPage() {
     loadVisits();
+    migrateLogData();
     displayLogs();
     updateHeader();
     setupModalElements();
     setupModalListeners();
 }
 
-// 訪問履歴を読み込み（後方互換性あり）
+// 訪問履歴を読み込み
 function loadVisits() {
     try {
         const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.curryLogs)
@@ -38,24 +41,73 @@ function loadVisits() {
 
         if (logsData) {
             visits = JSON.parse(logsData);
-
-            // 後方互換性: createdAt と editedAt がない場合は追加
-            visits = visits.map(visit => {
-                if (!visit.createdAt) {
-                    visit.createdAt = visit.date || new Date().toISOString().split('T')[0];
-                }
-                if (!visit.editedAt) {
-                    visit.editedAt = null;
-                }
-                return visit;
-            });
-
-            // 更新されたデータを保存
-            localStorage.setItem(storageKey, JSON.stringify(visits));
         }
     } catch (error) {
         console.error('訪問履歴の読み込みエラー:', error);
         visits = [];
+    }
+}
+
+/**
+ * 既存データを新しい構造に移行
+ */
+function migrateLogData() {
+    console.log('[Migration] データ移行処理を開始');
+
+    let needsMigration = false;
+
+    visits = visits.map(log => {
+        let migrated = false;
+
+        // date → visitedAt への移行
+        if (log.date && !log.visitedAt) {
+            log.visitedAt = log.date;
+            migrated = true;
+        }
+
+        // createdAt の生成（なければ visitedAt または date から生成）
+        if (!log.createdAt) {
+            log.createdAt = log.visitedAt || log.date || new Date().toISOString().split('T')[0];
+            migrated = true;
+        }
+
+        // 新しいフィールドの初期化
+        if (log.editedAt === undefined) {
+            log.editedAt = null;
+            migrated = true;
+        }
+
+        if (log.menu === undefined) {
+            log.menu = '';
+            migrated = true;
+        }
+
+        if (log.memo === undefined) {
+            log.memo = '';
+            migrated = true;
+        }
+
+        if (log.photos === undefined) {
+            log.photos = [];
+            migrated = true;
+        }
+
+        if (migrated) {
+            needsMigration = true;
+        }
+
+        return log;
+    });
+
+    // 移行が必要な場合は保存
+    if (needsMigration) {
+        const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.curryLogs)
+            ? Config.storageKeys.curryLogs
+            : 'curryLogs';
+        localStorage.setItem(storageKey, JSON.stringify(visits));
+        console.log('[Migration] データ移行完了', visits);
+    } else {
+        console.log('[Migration] 移行不要');
     }
 }
 
@@ -234,7 +286,7 @@ function setupModalListeners() {
     }
 }
 
-// モーダルを開く
+// モーダルを開く（修正版）
 function openEditModal(placeId) {
     const log = visits.find(l => (l.placeId || l.id || l.place_id) === placeId);
     if (!log) {
@@ -244,6 +296,9 @@ function openEditModal(placeId) {
 
     currentEditingLog = log;
 
+    // 現在フォーカスされている要素を保存（フォーカス復元用）
+    lastFocusedElement = document.activeElement;
+
     // モーダルにデータを設定
     const modalStoreName = document.getElementById('modalStoreName');
     const modalVisitedAt = document.getElementById('modalVisitedAt');
@@ -251,13 +306,23 @@ function openEditModal(placeId) {
     const modalMemo = document.getElementById('modalMemo');
 
     if (modalStoreName) modalStoreName.textContent = log.name || '店舗名不明';
-    if (modalVisitedAt) modalVisitedAt.value = log.visitedAt || log.date || '';
+
+    if (modalVisitedAt) {
+        // 今日の日付を max 属性に設定（未来の日付を選択不可に）
+        const today = new Date().toISOString().split('T')[0];
+        modalVisitedAt.setAttribute('max', today);
+        modalVisitedAt.value = log.visitedAt || log.date || '';
+    }
+
     if (modalMenu) modalMenu.value = log.menu || '';
     if (modalMemo) modalMemo.value = log.memo || '';
 
+    // body overflow を保存してから変更
+    originalBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     // モーダルを表示
     editModal.style.display = 'flex';
-    document.body.style.overflow = 'hidden'; // 背景スクロール防止
 
     // フォーカス可能要素を取得
     updateFocusableElements();
@@ -268,14 +333,23 @@ function openEditModal(placeId) {
     }
 }
 
-// モーダルを閉じる
+// モーダルを閉じる（修正版）
 function closeEditModal() {
     if (!editModal) return;
 
     editModal.style.display = 'none';
-    document.body.style.overflow = ''; // 背景スクロール復帰
+
+    // body overflow を元の値に復元
+    document.body.style.overflow = originalBodyOverflow;
+
     currentEditingLog = null;
     focusableElements = [];
+
+    // フォーカスを復元
+    if (lastFocusedElement && lastFocusedElement.focus) {
+        lastFocusedElement.focus();
+    }
+    lastFocusedElement = null;
 }
 
 // フォーカス可能要素を更新
@@ -286,10 +360,14 @@ function updateFocusableElements() {
     lastFocusableElement = focusableElements[focusableElements.length - 1];
 }
 
-// フォーカストラップ
+// フォーカストラップ（修正版）
 function handleFocusTrap(e) {
     if (!editModal || editModal.style.display === 'none') return;
     if (e.key !== 'Tab') return;
+
+    // ガード追加
+    if (focusableElements.length === 0) return;
+    if (!firstFocusableElement || !lastFocusableElement) return;
 
     if (e.shiftKey) {
         // Shift + Tab
@@ -306,8 +384,122 @@ function handleFocusTrap(e) {
     }
 }
 
-// 保存処理（Phase 1-B-2 で実装予定）
+/**
+ * 編集内容を保存
+ */
 function saveEditedLog() {
-    console.log('保存処理は Phase 1-B-2 で実装します');
-    closeEditModal();
+    if (!currentEditingLog) {
+        console.error('編集中のログが見つかりません');
+        return;
+    }
+
+    // 入力値を取得
+    const visitedAt = document.getElementById('modalVisitedAt').value;
+    const menu = document.getElementById('modalMenu').value;
+    const memo = document.getElementById('modalMemo').value;
+
+    // バリデーション
+    if (!validateEditInput(visitedAt, menu, memo)) {
+        return;
+    }
+
+    // データ更新
+    const logIndex = visits.findIndex(l => (l.placeId || l.id || l.place_id) === (currentEditingLog.placeId || currentEditingLog.id || currentEditingLog.place_id));
+
+    if (logIndex === -1) {
+        console.error('ログが見つかりません');
+        return;
+    }
+
+    // 更新内容を適用
+    visits[logIndex] = {
+        ...visits[logIndex],
+        visitedAt: visitedAt,
+        menu: menu.trim(),
+        memo: memo.trim(),
+        editedAt: new Date().toISOString()  // ISO 8601形式で保存
+    };
+
+    // localStorageに保存
+    try {
+        const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.curryLogs)
+            ? Config.storageKeys.curryLogs
+            : 'curryLogs';
+        localStorage.setItem(storageKey, JSON.stringify(visits));
+        console.log('[Save] ログを保存しました', visits[logIndex]);
+
+        // モーダルを閉じる
+        closeEditModal();
+
+        // ログページを再レンダリング
+        displayLogs();
+
+        // 成功メッセージ
+        showSaveSuccessMessage();
+
+    } catch (error) {
+        console.error('[Save] 保存エラー:', error);
+        alert('保存に失敗しました。容量制限を超えている可能性があります。');
+    }
+}
+
+/**
+ * 入力値のバリデーション
+ */
+function validateEditInput(visitedAt, menu, memo) {
+    // 訪問日のチェック
+    if (!visitedAt) {
+        alert('訪問日を入力してください');
+        return false;
+    }
+
+    // 未来の日付チェック
+    const today = new Date().toISOString().split('T')[0];
+    if (visitedAt > today) {
+        alert('未来の日付は選択できません');
+        return false;
+    }
+
+    // メニューの文字数制限（100文字）
+    if (menu.length > 100) {
+        alert('メニューは100文字以内で入力してください');
+        return false;
+    }
+
+    // メモの文字数制限（500文字）
+    if (memo.length > 500) {
+        alert('メモは500文字以内で入力してください');
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * 保存成功メッセージを表示
+ */
+function showSaveSuccessMessage() {
+    // 簡易的なトースト通知
+    const toast = document.createElement('div');
+    toast.textContent = '保存しました ✓';
+    toast.className = 'toast-notification';
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 32px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #4caf50;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 6px;
+        z-index: 3000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        animation: fadeInOut 2s ease-in-out;
+    `;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 2000);
 }
