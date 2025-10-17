@@ -481,6 +481,40 @@ body {
     outline-offset: 2px;
 }
 
+/* トースト通知 */
+.toast-notification {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #4caf50;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 6px;
+    z-index: 3000;
+    animation: fadeInOut 2s ease-in-out;
+}
+
+/* トースト通知のアニメーション */
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    20% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    80% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+}
+
 /* レスポンシブ対応 */
 @media (max-width: 600px) {
     .header h1 {
