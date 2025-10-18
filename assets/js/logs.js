@@ -118,6 +118,8 @@ function displayLogs() {
                     </h3>
                     <p class="log-date">訪問日: ${escapeHtml(visitDate)}</p>
                     <p class="log-location">📍 ${escapeHtml(displayAddress)}</p>
+                    ${visit.menu ? `<p class="log-menu">🍛 ${escapeHtml(visit.menu)}</p>` : ''}
+                    ${visit.memo ? `<p class="log-memo">📝 ${escapeHtml(visit.memo)}</p>` : ''}
                 </div>
             `;
         });
@@ -354,7 +356,7 @@ function saveEditedLog() {
     // 更新内容を適用
     visits[logIndex] = {
         ...visits[logIndex],
-        visitedAt: visitedAt,
+        visitedAt: visitedAt || null,  // 空の場合は null
         menu: menu.trim(),
         memo: memo.trim(),
         editedAt: new Date().toISOString()  // ISO 8601形式で保存
@@ -384,27 +386,24 @@ function saveEditedLog() {
  * 入力値のバリデーション
  */
 function validateEditInput(visitedAt, menu, memo) {
-    // 訪問日のチェック
-    if (!visitedAt) {
-        alert('訪問日を入力してください');
-        return false;
-    }
+    // 訪問日のチェック（空を許容）
+    if (visitedAt) {  // 入力されている場合のみチェック
+        // 日付フォーマットのチェック
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(visitedAt)) {
+            alert('訪問日を正しい形式で入力してください');
+            return false;
+        }
 
-    // 日付フォーマットのチェック
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(visitedAt)) {
-        alert('訪問日を正しい形式で入力してください');
-        return false;
-    }
+        // 未来の日付チェック（文字列比較版 - タイムゾーン対応）
+        const today = new Date();
+        const todayString = today.getFullYear() + '-' +
+            String(today.getMonth() + 1).padStart(2, '0') + '-' +
+            String(today.getDate()).padStart(2, '0');
 
-    // 未来の日付チェック（文字列比較版 - タイムゾーン対応）
-    const today = new Date();
-    const todayString = today.getFullYear() + '-' +
-        String(today.getMonth() + 1).padStart(2, '0') + '-' +
-        String(today.getDate()).padStart(2, '0');
-
-    if (visitedAt > todayString) {
-        alert('未来の日付は選択できません');
-        return false;
+        if (visitedAt > todayString) {
+            alert('未来の日付は選択できません');
+            return false;
+        }
     }
 
     // メニューの文字数制限（100文字）
