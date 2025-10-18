@@ -141,6 +141,21 @@ body {
     color: #7B4A12;
 }
 
+/* メニュー表示 */
+.log-menu {
+    font-size: 14px;
+    color: #666;
+    margin: 8px 0 4px 0;
+}
+
+/* メモ表示 */
+.log-memo {
+    font-size: 14px;
+    color: #888;
+    font-style: italic;
+    margin: 4px 0;
+}
+
 /* Empty State */
 .empty-state {
     text-align: center;
