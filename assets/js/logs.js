@@ -179,17 +179,96 @@ function displayLogs() {
         sortSelect.value = sortType;
     }
 
+    // ソートタイプに応じて表示方法を分岐
+    if (sortType === 'region') {
+        displayLogsByRegion(sortedVisits);
+    } else {
+        displayLogsByDate(sortedVisits);
+    }
+}
+
+/**
+ * 地域別にログを表示
+ * @param {Array} logs - ソート済みのログデータ
+ */
+function displayLogsByRegion(logs) {
+    const logsContainer = document.getElementById('logsContainer');
+
+    // 都道府県ごとにグループ化
+    const groupedByPrefecture = {};
+    logs.forEach(log => {
+        const prefecture = extractPrefecture(log.address || '');
+        if (!groupedByPrefecture[prefecture]) {
+            groupedByPrefecture[prefecture] = [];
+        }
+        groupedByPrefecture[prefecture].push(log);
+    });
+
+    // 都道府県の順序を保持（ソート済みの順番）
+    const prefectureOrder = [];
+    logs.forEach(log => {
+        const prefecture = extractPrefecture(log.address || '');
+        if (!prefectureOrder.includes(prefecture)) {
+            prefectureOrder.push(prefecture);
+        }
+    });
+
+    // HTML生成
+    let html = '';
+    prefectureOrder.forEach(prefecture => {
+        html += `<div class="region-group">`;
+        html += `<div class="region-header">${escapeHtml(prefecture)}</div>`;
+
+        groupedByPrefecture[prefecture].forEach(visit => {
+            const visitDate = visit.visitedAt || visit.createdAt || visit.date || '日付不明';
+            const placeId = visit.placeId || visit.id || visit.place_id || '';
+            const name = visit.name || '店舗名不明';
+            const address = visit.address || visit.vicinity || '住所不明';
+
+            // 市区まで抽出（簡易版）
+            const cityMatch = address.match(/(.+?[都道府県])(.+?[市区町村])/);
+            const displayAddress = cityMatch ? cityMatch[1] + cityMatch[2] : address;
+
+            html += `
+                <div class="log-card">
+                    <button class="edit-icon" data-place-id="${escapeHtml(placeId)}" aria-label="編集">✏️</button>
+                    <h3>
+                        <a href="/?placeId=${encodeURIComponent(placeId)}" class="shop-link">
+                            ${escapeHtml(name)}
+                        </a>
+                    </h3>
+                    <p class="log-date">訪問日: ${escapeHtml(visitDate)}</p>
+                    <p class="log-location">📍 ${escapeHtml(displayAddress)}</p>
+                    ${visit.menu ? `<p class="log-menu">🍛 ${escapeHtml(visit.menu)}</p>` : ''}
+                    ${visit.memo ? `<p class="log-memo">📝 ${escapeHtml(visit.memo)}</p>` : ''}
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+    });
+
+    logsContainer.innerHTML = html;
+}
+
+/**
+ * 日付別（月別）にログを表示
+ * @param {Array} logs - ソート済みのログデータ
+ */
+function displayLogsByDate(logs) {
+    const logsContainer = document.getElementById('logsContainer');
+
     // 月ごとにグループ化
-    const groupedByMonth = groupByMonth(sortedVisits);
+    const groupedByMonth = groupByMonth(logs);
 
     // HTML生成（XSS対策: escapeHtml使用）
     let html = '';
 
-    for (const [monthKey, logs] of Object.entries(groupedByMonth)) {
+    for (const [monthKey, monthLogs] of Object.entries(groupedByMonth)) {
         html += `<div class="month-group">`;
         html += `<div class="month-header">${escapeHtml(monthKey)}</div>`;
 
-        logs.forEach(visit => {
+        monthLogs.forEach(visit => {
             const visitDate = visit.visitedAt || visit.createdAt || visit.date || '日付不明';
             const placeId = visit.placeId || visit.id || visit.place_id || '';
             const name = visit.name || '店舗名不明';
