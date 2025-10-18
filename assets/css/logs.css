@@ -108,6 +108,20 @@ body {
     border-bottom: 2px solid #ff8c00;
 }
 
+/* 地域グループのスタイル */
+.region-group {
+    margin-bottom: 32px;
+}
+
+.region-header {
+    font-size: 20px;
+    font-weight: bold;
+    color: #FF8C00;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #FF8C00;
+}
+
 /* ログカード */
 .log-card {
     background: #FFFFFF;
