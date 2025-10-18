@@ -99,7 +99,8 @@ function displayLogs() {
         html += `<div class="month-header">${escapeHtml(monthKey)}</div>`;
 
         logs.forEach(visit => {
-            const visitDate = visit.createdAt || visit.date || '日付不明';
+            // visitedAt を優先して表示（空の場合は「日付不明」）
+            const visitDate = visit.visitedAt || visit.date || '日付不明';
             const placeId = visit.placeId || visit.id || visit.place_id || '';
             const name = visit.name || '店舗名不明';
             const address = visit.address || visit.vicinity || '住所不明';
@@ -107,6 +108,10 @@ function displayLogs() {
             // 市区まで抽出（簡易版）
             const cityMatch = address.match(/(.+?[都道府県])(.+?[市区町村])/);
             const displayAddress = cityMatch ? cityMatch[1] + cityMatch[2] : address;
+
+            // メニュー・メモの表示用HTML
+            const menuHtml = visit.menu ? `<p class="log-menu">🍛 ${escapeHtml(visit.menu)}</p>` : '';
+            const memoHtml = visit.memo ? `<p class="log-memo">📝 ${escapeHtml(visit.memo)}</p>` : '';
 
             html += `
                 <div class="log-card">
@@ -118,6 +123,8 @@ function displayLogs() {
                     </h3>
                     <p class="log-date">訪問日: ${escapeHtml(visitDate)}</p>
                     <p class="log-location">📍 ${escapeHtml(displayAddress)}</p>
+                    ${menuHtml}
+                    ${memoHtml}
                 </div>
             `;
         });
@@ -354,7 +361,7 @@ function saveEditedLog() {
     // 更新内容を適用
     visits[logIndex] = {
         ...visits[logIndex],
-        visitedAt: visitedAt,
+        visitedAt: visitedAt || null,  // 空の場合は null
         menu: menu.trim(),
         memo: memo.trim(),
         editedAt: new Date().toISOString()  // ISO 8601形式で保存
@@ -384,27 +391,24 @@ function saveEditedLog() {
  * 入力値のバリデーション
  */
 function validateEditInput(visitedAt, menu, memo) {
-    // 訪問日のチェック
-    if (!visitedAt) {
-        alert('訪問日を入力してください');
-        return false;
-    }
+    // 訪問日のチェック（空を許容）
+    if (visitedAt) {  // 入力されている場合のみチェック
+        // 日付フォーマットのチェック
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(visitedAt)) {
+            alert('訪問日を正しい形式で入力してください');
+            return false;
+        }
 
-    // 日付フォーマットのチェック
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(visitedAt)) {
-        alert('訪問日を正しい形式で入力してください');
-        return false;
-    }
+        // 未来の日付チェック（文字列比較版 - タイムゾーン対応）
+        const today = new Date();
+        const todayString = today.getFullYear() + '-' +
+            String(today.getMonth() + 1).padStart(2, '0') + '-' +
+            String(today.getDate()).padStart(2, '0');
 
-    // 未来の日付チェック（文字列比較版 - タイムゾーン対応）
-    const today = new Date();
-    const todayString = today.getFullYear() + '-' +
-        String(today.getMonth() + 1).padStart(2, '0') + '-' +
-        String(today.getDate()).padStart(2, '0');
-
-    if (visitedAt > todayString) {
-        alert('未来の日付は選択できません');
-        return false;
+        if (visitedAt > todayString) {
+            alert('未来の日付は選択できません');
+            return false;
+        }
     }
 
     // メニューの文字数制限（100文字）
