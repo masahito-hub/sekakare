@@ -49,6 +49,17 @@
         </button>
     </div>
 
+    <!-- 並び替えコントロール -->
+    <div class="sort-controls">
+        <label for="sortSelect">並び替え:</label>
+        <select id="sortSelect" class="sort-dropdown" aria-label="ログの並び替え順を選択">
+            <option value="date-desc" selected>日付順（新→旧）</option>
+            <option value="date-asc">日付順（旧→新）</option>
+            <option value="region">地域別</option>
+            <option value="visit-count">再訪回数順</option>
+        </select>
+    </div>
+
     <!-- メニューオーバーレイ -->
     <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
 

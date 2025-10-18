@@ -43,6 +43,43 @@ body {
     margin: 4px 0;
 }
 
+/* 並び替えコントロール */
+.sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 800px;
+    width: 100%;
+    margin: 16px auto 0 auto;
+    padding: 0 15px;
+}
+
+.sort-controls label {
+    font-size: 14px;
+    color: #3A2A0A;
+    font-weight: 600;
+}
+
+.sort-dropdown {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: white;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.sort-dropdown:hover {
+    border-color: #FF8C00;
+}
+
+.sort-dropdown:focus {
+    outline: none;
+    border-color: #FF8C00;
+    box-shadow: 0 0 0 3px rgba(255, 140, 0, 0.1);
+}
+
 /* コンテナ */
 .container {
     flex: 1;
