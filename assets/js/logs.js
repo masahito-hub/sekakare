@@ -306,8 +306,141 @@ function handleFocusTrap(e) {
     }
 }
 
-// 保存処理（Phase 1-B-2 で実装予定）
+// 保存処理
 function saveEditedLog() {
-    console.log('保存処理は Phase 1-B-2 で実装します');
-    closeEditModal();
+    if (!currentEditingLog) {
+        console.error('編集中のログが見つかりません');
+        return;
+    }
+
+    // 要素の存在確認を追加
+    const visitedAtEl = document.getElementById('modalVisitedAt');
+    const menuEl = document.getElementById('modalMenu');
+    const memoEl = document.getElementById('modalMemo');
+
+    if (!visitedAtEl || !menuEl || !memoEl) {
+        console.error('必要なフォーム要素が見つかりません');
+        alert('編集フォームの読み込みに失敗しました。ページを再読み込みしてください。');
+        return;
+    }
+
+    // 値を取得
+    const visitedAt = visitedAtEl.value;
+    const menu = menuEl.value;
+    const memo = memoEl.value;
+
+    // バリデーション
+    if (!validateEditInput(visitedAt, menu, memo)) {
+        return;
+    }
+
+    // データ更新
+    const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.curryLogs)
+        ? Config.storageKeys.curryLogs
+        : 'curryLogs';
+
+    const logIndex = visits.findIndex(l => {
+        const id = l.placeId || l.id || l.place_id;
+        const currentId = currentEditingLog.placeId || currentEditingLog.id || currentEditingLog.place_id;
+        return id === currentId;
+    });
+
+    if (logIndex === -1) {
+        console.error('ログが見つかりません');
+        alert('ログの更新に失敗しました。');
+        return;
+    }
+
+    // 更新内容を適用
+    visits[logIndex] = {
+        ...visits[logIndex],
+        visitedAt: visitedAt,
+        menu: menu.trim(),
+        memo: memo.trim(),
+        editedAt: new Date().toISOString()  // ISO 8601形式で保存
+    };
+
+    // localStorageに保存
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(visits));
+        console.log('[Save] ログを保存しました', visits[logIndex]);
+
+        // モーダルを閉じる
+        closeEditModal();
+
+        // ログページを再レンダリング
+        displayLogs();
+
+        // 成功メッセージ
+        showSaveSuccessMessage();
+
+    } catch (error) {
+        console.error('[Save] 保存エラー:', error);
+        alert('保存に失敗しました。容量制限を超えている可能性があります。');
+    }
+}
+
+/**
+ * 入力値のバリデーション
+ */
+function validateEditInput(visitedAt, menu, memo) {
+    // 訪問日のチェック
+    if (!visitedAt) {
+        alert('訪問日を入力してください');
+        return false;
+    }
+
+    // 日付フォーマットのチェック
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(visitedAt)) {
+        alert('訪問日を正しい形式で入力してください');
+        return false;
+    }
+
+    // 未来の日付チェック（文字列比較版 - タイムゾーン対応）
+    const today = new Date();
+    const todayString = today.getFullYear() + '-' +
+        String(today.getMonth() + 1).padStart(2, '0') + '-' +
+        String(today.getDate()).padStart(2, '0');
+
+    if (visitedAt > todayString) {
+        alert('未来の日付は選択できません');
+        return false;
+    }
+
+    // メニューの文字数制限（100文字）
+    if (menu.length > 100) {
+        alert('メニューは100文字以内で入力してください');
+        return false;
+    }
+
+    // メモの文字数制限（500文字）
+    if (memo.length > 500) {
+        alert('メモは500文字以内で入力してください');
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * 保存成功メッセージを表示
+ */
+function showSaveSuccessMessage() {
+    // 既存のトーストを削除（重複防止）
+    const existingToast = document.querySelector('.toast-notification');
+    if (existingToast) {
+        existingToast.remove();
+    }
+
+    // トースト通知を作成
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';  // CSSクラスを使用
+    toast.textContent = '保存しました ✓';
+
+    document.body.appendChild(toast);
+
+    // 2秒後に削除
+    setTimeout(() => {
+        toast.remove();
+    }, 2000);
 }
