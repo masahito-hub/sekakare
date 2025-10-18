@@ -29,6 +29,15 @@ let focusableElements = [];
 let firstFocusableElement = null;
 let lastFocusableElement = null;
 
+// 写真管理用のグローバル変数
+let currentPhotos = []; // 現在編集中の写真配列
+const MAX_PHOTOS = 3; // 最大写真枚数
+
+// 画像拡大モーダル関連
+let imageViewModal = null;
+let currentImageIndex = 0;
+let currentImageArray = [];
+
 /**
  * ログデータをソートする
  * @param {Array} logs - ログデータの配列
@@ -106,6 +115,8 @@ function initLogsPage() {
     setupModalElements();
     setupModalListeners();
     setupSortListener();
+    setupPhotoListeners();
+    setupImageViewModal();
 }
 
 // 訪問履歴を読み込み（後方互換性あり）
@@ -127,6 +138,10 @@ function loadVisits() {
                 }
                 if (!visit.editedAt) {
                     visit.editedAt = null;
+                }
+                // 写真配列の初期化
+                if (!visit.photos) {
+                    visit.photos = [];
                 }
                 return visit;
             });
@@ -188,6 +203,33 @@ function displayLogs() {
 }
 
 /**
+ * 写真サムネイルHTMLを生成
+ * @param {Array} photos - 写真配列
+ * @param {string} placeId - 店舗ID
+ * @returns {string} HTML文字列
+ */
+function generatePhotoThumbnails(photos, placeId) {
+    if (!photos || photos.length === 0) return '';
+
+    let html = '<div class="log-photos">';
+    
+    photos.slice(0, 3).forEach((photo, index) => {
+        html += `
+            <img 
+                src="${photo.data}" 
+                alt="写真 ${index + 1}" 
+                class="log-photo-thumbnail"
+                data-place-id="${escapeHtml(placeId)}"
+                data-photo-index="${index}"
+                loading="lazy">
+        `;
+    });
+
+    html += '</div>';
+    return html;
+}
+
+/**
  * 地域別にログを表示
  * @param {Array} logs - ソート済みのログデータ
  */
@@ -241,6 +283,7 @@ function displayLogsByRegion(logs) {
                     <p class="log-location">📍 ${escapeHtml(displayAddress)}</p>
                     ${visit.menu ? `<p class="log-menu">🍛 ${escapeHtml(visit.menu)}</p>` : ''}
                     ${visit.memo ? `<p class="log-memo">📝 ${escapeHtml(visit.memo)}</p>` : ''}
+                    ${generatePhotoThumbnails(visit.photos, placeId)}
                 </div>
             `;
         });
@@ -290,6 +333,7 @@ function displayLogsByDate(logs) {
                     <p class="log-location">📍 ${escapeHtml(displayAddress)}</p>
                     ${visit.menu ? `<p class="log-menu">🍛 ${escapeHtml(visit.menu)}</p>` : ''}
                     ${visit.memo ? `<p class="log-memo">📝 ${escapeHtml(visit.memo)}</p>` : ''}
+                    ${generatePhotoThumbnails(visit.photos, placeId)}
                 </div>
             `;
         });
@@ -372,6 +416,19 @@ function setupModalListeners() {
         }
     });
 
+    // 写真サムネイルクリックで拡大表示
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('log-photo-thumbnail')) {
+            const placeId = e.target.dataset.placeId;
+            const photoIndex = parseInt(e.target.dataset.photoIndex, 10);
+            
+            const log = visits.find(l => (l.placeId || l.id || l.place_id) === placeId);
+            if (log && log.photos && log.photos.length > 0) {
+                openImageView(photoIndex, log.photos);
+            }
+        }
+    });
+
     // 閉じるボタン
     const modalClose = document.querySelector('.modal-close');
     const modalCancel = document.getElementById('modalCancel');
@@ -399,7 +456,7 @@ function setupModalListeners() {
     // フォーカストラップ
     document.addEventListener('keydown', handleFocusTrap);
 
-    // 保存ボタン（Phase 1-B-2 で実装）
+    // 保存ボタン
     const modalSave = document.getElementById('modalSave');
     if (modalSave) {
         modalSave.addEventListener('click', saveEditedLog);
@@ -424,6 +481,298 @@ function setupSortListener() {
     }
 }
 
+/**
+ * 写真関連のイベントリスナー設定
+ */
+function setupPhotoListeners() {
+    const addPhotoBtn = document.getElementById('addPhotoBtn');
+    const photoInput = document.getElementById('modalPhotoInput');
+
+    if (addPhotoBtn && photoInput) {
+        addPhotoBtn.addEventListener('click', () => {
+            if (currentPhotos.length >= MAX_PHOTOS) {
+                alert(`写真は最大${MAX_PHOTOS}枚までです。`);
+                return;
+            }
+            photoInput.click();
+        });
+
+        photoInput.addEventListener('change', handlePhotoSelection);
+    }
+}
+
+/**
+ * 写真選択ハンドラー
+ * @param {Event} e - changeイベント
+ */
+async function handlePhotoSelection(e) {
+    const files = Array.from(e.target.files);
+    
+    if (files.length === 0) return;
+
+    // 枚数チェック
+    if (currentPhotos.length + files.length > MAX_PHOTOS) {
+        alert(`写真は最大${MAX_PHOTOS}枚までです。残り${MAX_PHOTOS - currentPhotos.length}枚追加できます。`);
+        return;
+    }
+
+    // ローディング表示
+    showPhotoLoading();
+
+    try {
+        // 各ファイルを処理
+        for (const file of files) {
+            // 容量チェック
+            const storage = checkStorageCapacity();
+            if (storage.percentage > 80) {
+                alert('ストレージ容量が不足しています。古い写真を削除するか、他のデータを整理してください。');
+                break;
+            }
+
+            try {
+                // 画像圧縮
+                const compressedData = await compressImage(file, {
+                    maxWidth: 800,
+                    maxHeight: 800,
+                    quality: 0.7
+                });
+
+                // 写真オブジェクトを作成
+                const photo = {
+                    id: generateUniqueId(),
+                    data: compressedData,
+                    createdAt: new Date().toISOString()
+                };
+
+                currentPhotos.push(photo);
+                console.log(`[Photo] Added: ${photo.id}, Size: ${(compressedData.length / 1024).toFixed(2)}KB`);
+
+            } catch (error) {
+                console.error('[Photo] 圧縮エラー:', error);
+                alert(error.message || '画像の処理に失敗しました。');
+            }
+        }
+
+        // プレビュー更新
+        updatePhotoPreview();
+
+    } finally {
+        // ローディング非表示
+        hidePhotoLoading();
+        // ファイル入力をリセット
+        e.target.value = '';
+    }
+}
+
+/**
+ * 写真プレビューを更新
+ */
+function updatePhotoPreview() {
+    const previewContainer = document.getElementById('photoPreviewContainer');
+    const addPhotoBtn = document.getElementById('addPhotoBtn');
+
+    if (!previewContainer) return;
+
+    // プレビューHTML生成
+    let html = '';
+    currentPhotos.forEach((photo, index) => {
+        html += `
+            <div class="photo-preview-item" data-photo-id="${escapeHtml(photo.id)}">
+                <img src="${photo.data}" alt="写真 ${index + 1}" loading="lazy">
+                <button class="photo-delete-btn" data-photo-id="${escapeHtml(photo.id)}" aria-label="削除">×</button>
+            </div>
+        `;
+    });
+
+    previewContainer.innerHTML = html;
+
+    // 削除ボタンのイベントリスナー
+    previewContainer.querySelectorAll('.photo-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const photoId = btn.dataset.photoId;
+            deletePhoto(photoId);
+        });
+    });
+
+    // プレビュー画像クリックで拡大表示
+    previewContainer.querySelectorAll('.photo-preview-item img').forEach((img, index) => {
+        img.addEventListener('click', () => {
+            openImageView(index, currentPhotos);
+        });
+    });
+
+    // 追加ボタンの表示/非表示
+    if (addPhotoBtn) {
+        if (currentPhotos.length >= MAX_PHOTOS) {
+            addPhotoBtn.style.display = 'none';
+        } else {
+            addPhotoBtn.style.display = 'flex';
+        }
+    }
+}
+
+/**
+ * 写真を削除
+ * @param {string} photoId - 削除する写真のID
+ */
+function deletePhoto(photoId) {
+    const index = currentPhotos.findIndex(p => p.id === photoId);
+    if (index !== -1) {
+        currentPhotos.splice(index, 1);
+        updatePhotoPreview();
+        console.log(`[Photo] Deleted: ${photoId}`);
+    }
+}
+
+/**
+ * ローディング表示
+ */
+function showPhotoLoading() {
+    const addPhotoBtn = document.getElementById('addPhotoBtn');
+    if (addPhotoBtn) {
+        addPhotoBtn.disabled = true;
+        addPhotoBtn.innerHTML = '<span class="add-photo-icon">⏳</span><span class="add-photo-text">処理中...</span>';
+    }
+}
+
+/**
+ * ローディング非表示
+ */
+function hidePhotoLoading() {
+    const addPhotoBtn = document.getElementById('addPhotoBtn');
+    if (addPhotoBtn) {
+        addPhotoBtn.disabled = false;
+        addPhotoBtn.innerHTML = '<span class="add-photo-icon">📷</span><span class="add-photo-text">写真を追加</span>';
+    }
+}
+
+/**
+ * 画像拡大モーダルの設定
+ */
+function setupImageViewModal() {
+    imageViewModal = document.getElementById('imageViewModal');
+    
+    if (!imageViewModal) return;
+
+    // 閉じるボタン
+    const closeBtn = imageViewModal.querySelector('.image-modal-close');
+    const overlay = imageViewModal.querySelector('.image-modal-overlay');
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeImageView);
+    }
+
+    if (overlay) {
+        overlay.addEventListener('click', closeImageView);
+    }
+
+    // ナビゲーションボタン
+    const prevBtn = imageViewModal.querySelector('.image-nav-prev');
+    const nextBtn = imageViewModal.querySelector('.image-nav-next');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', showPrevImage);
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', showNextImage);
+    }
+
+    // キーボードナビゲーション
+    document.addEventListener('keydown', (e) => {
+        if (!imageViewModal || imageViewModal.style.display === 'none') return;
+
+        if (e.key === 'ArrowLeft') {
+            showPrevImage();
+        } else if (e.key === 'ArrowRight') {
+            showNextImage();
+        } else if (e.key === 'Escape') {
+            closeImageView();
+        }
+    });
+}
+
+/**
+ * 画像拡大表示を開く
+ * @param {number} index - 表示する画像のインデックス
+ * @param {Array} photos - 写真配列
+ */
+function openImageView(index, photos) {
+    if (!imageViewModal || !photos || photos.length === 0) return;
+
+    currentImageIndex = index;
+    currentImageArray = photos;
+
+    updateImageView();
+
+    imageViewModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * 画像拡大表示を閉じる
+ */
+function closeImageView() {
+    if (!imageViewModal) return;
+
+    imageViewModal.style.display = 'none';
+    document.body.style.overflow = '';
+    currentImageIndex = 0;
+    currentImageArray = [];
+}
+
+/**
+ * 画像ビューを更新
+ */
+function updateImageView() {
+    if (!imageViewModal || currentImageArray.length === 0) return;
+
+    const img = document.getElementById('imageViewImg');
+    const counter = document.getElementById('imageCounter');
+    const prevBtn = imageViewModal.querySelector('.image-nav-prev');
+    const nextBtn = imageViewModal.querySelector('.image-nav-next');
+
+    if (img) {
+        img.src = currentImageArray[currentImageIndex].data;
+    }
+
+    // カウンター更新
+    if (counter && currentImageArray.length > 1) {
+        counter.textContent = `${currentImageIndex + 1} / ${currentImageArray.length}`;
+        counter.style.display = 'block';
+    } else if (counter) {
+        counter.style.display = 'none';
+    }
+
+    // ナビゲーションボタンの表示
+    if (prevBtn) {
+        prevBtn.style.display = currentImageArray.length > 1 ? 'block' : 'none';
+    }
+
+    if (nextBtn) {
+        nextBtn.style.display = currentImageArray.length > 1 ? 'block' : 'none';
+    }
+}
+
+/**
+ * 前の画像を表示
+ */
+function showPrevImage() {
+    if (currentImageArray.length === 0) return;
+    currentImageIndex = (currentImageIndex - 1 + currentImageArray.length) % currentImageArray.length;
+    updateImageView();
+}
+
+/**
+ * 次の画像を表示
+ */
+function showNextImage() {
+    if (currentImageArray.length === 0) return;
+    currentImageIndex = (currentImageIndex + 1) % currentImageArray.length;
+    updateImageView();
+}
+
 // モーダルを開く
 function openEditModal(placeId) {
     const log = visits.find(l => (l.placeId || l.id || l.place_id) === placeId);
@@ -433,6 +782,9 @@ function openEditModal(placeId) {
     }
 
     currentEditingLog = log;
+
+    // 写真データを読み込み
+    currentPhotos = log.photos ? [...log.photos] : [];
 
     // モーダルにデータを設定
     const modalStoreName = document.getElementById('modalStoreName');
@@ -444,6 +796,9 @@ function openEditModal(placeId) {
     if (modalVisitedAt) modalVisitedAt.value = log.visitedAt || log.date || '';
     if (modalMenu) modalMenu.value = log.menu || '';
     if (modalMemo) modalMemo.value = log.memo || '';
+
+    // 写真プレビュー更新
+    updatePhotoPreview();
 
     // モーダルを表示
     editModal.style.display = 'flex';
@@ -465,6 +820,7 @@ function closeEditModal() {
     editModal.style.display = 'none';
     document.body.style.overflow = ''; // 背景スクロール復帰
     currentEditingLog = null;
+    currentPhotos = [];
     focusableElements = [];
 }
 
@@ -541,12 +897,13 @@ function saveEditedLog() {
         return;
     }
 
-    // 更新内容を適用
+    // 更新内容を適用（写真を含む）
     visits[logIndex] = {
         ...visits[logIndex],
         visitedAt: visitedAt || null,  // 空の場合は null
         menu: menu.trim(),
         memo: memo.trim(),
+        photos: currentPhotos, // 写真データを保存
         editedAt: new Date().toISOString()  // ISO 8601形式で保存
     };
 
@@ -566,7 +923,14 @@ function saveEditedLog() {
 
     } catch (error) {
         console.error('[Save] 保存エラー:', error);
-        alert('保存に失敗しました。容量制限を超えている可能性があります。');
+        
+        // 容量エラーの場合、詳細メッセージ
+        if (error.name === 'QuotaExceededError') {
+            const storage = checkStorageCapacity();
+            alert(`保存に失敗しました。\nストレージ使用量: ${storage.used}MB / ${storage.limit}MB\n写真の枚数を減らすか、古いログを削除してください。`);
+        } else {
+            alert('保存に失敗しました。容量制限を超えている可能性があります。');
+        }
     }
 }
 
