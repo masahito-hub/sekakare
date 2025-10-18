@@ -31,7 +31,7 @@ function escapeHtml(str) {
  * @returns {boolean} 妥当な場合true
  */
 function isValidBase64Image(data) {
-    if (typeof data !== 'string') return false;
+    if (typeof str !== 'string') return false;
     
     // Base64画像データの形式チェック
     const base64Pattern = /^data:image\/(jpeg|jpg|png|webp);base64,/i;
@@ -44,6 +44,39 @@ function isValidBase64Image(data) {
     // 基本的なBase64文字セットチェック
     const validBase64 = /^[A-Za-z0-9+/]*={0,2}$/;
     return validBase64.test(base64Data);
+}
+
+/**
+ * Base64画像データをサニタイゼーション（XSS対策）
+ * @param {string} data - サニタイズするBase64データ
+ * @returns {string|null} サニタイズ済みデータ、不正な場合はnull
+ */
+function sanitizeImageData(data) {
+    // バリデーションチェック
+    if (!isValidBase64Image(data)) {
+        console.error('[Security] Invalid Base64 image data detected');
+        return null;
+    }
+    
+    // data URLからMIMEタイプとBase64部分を分離
+    const match = data.match(/^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/i);
+    if (!match) {
+        console.error('[Security] Failed to parse Base64 data');
+        return null;
+    }
+    
+    const mimeType = match[1].toLowerCase();
+    const base64Content = match[2];
+    
+    // MIMEタイプを正規化（jpg → jpeg）
+    const normalizedMimeType = mimeType === 'jpg' ? 'jpeg' : mimeType;
+    
+    // XSS攻撃を防ぐため、確実にdata URLスキームを再構築
+    const sanitized = `data:image/${normalizedMimeType};base64,${base64Content}`;
+    
+    console.log(`[Security] Sanitized image data: ${normalizedMimeType}, size: ${(base64Content.length / 1024).toFixed(2)}KB`);
+    
+    return sanitized;
 }
 
 /**
@@ -61,8 +94,9 @@ function compressImage(file, options = {}) {
     let quality = options.quality || PHOTO_CONFIG.QUALITY;
 
     return new Promise((resolve, reject) => {
-        // ファイル形式チェック
-        if (!file.type.match(/image\/(jpeg|jpg|png|webp)/i)) {
+        // ファイル形式チェック（より厳密に）
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type.toLowerCase())) {
             reject(new Error('対応していない画像形式です。JPEG、PNG、WebPのみ対応しています。'));
             return;
         }
@@ -145,13 +179,14 @@ function compressImage(file, options = {}) {
                         console.warn(`[Image Compress] 目標サイズ(${PHOTO_CONFIG.TARGET_SIZE / 1024}KB)を超えています: ${(compressedSize / 1024).toFixed(2)}KB`);
                     }
 
-                    // Base64データの妥当性チェック
-                    if (!isValidBase64Image(base64Data)) {
-                        reject(new Error('画像データの生成に失敗しました。'));
+                    // Base64データのサニタイゼーション（XSS対策）
+                    const sanitizedData = sanitizeImageData(base64Data);
+                    if (!sanitizedData) {
+                        reject(new Error('画像データの検証に失敗しました。'));
                         return;
                     }
 
-                    resolve(base64Data);
+                    resolve(sanitizedData);
                 } catch (error) {
                     reject(new Error('画像の圧縮処理に失敗しました: ' + error.message));
                 }
