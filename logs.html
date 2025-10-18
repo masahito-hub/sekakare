@@ -117,10 +117,44 @@
                 <textarea id="modalMemo" rows="4" placeholder="思い出や気付きを記録..."></textarea>
             </div>
 
+            <!-- 写真アップロードセクション -->
+            <div class="form-group">
+                <label for="modalPhotoInput">📷 写真（最大3枚）</label>
+                <input 
+                    type="file" 
+                    id="modalPhotoInput" 
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    style="display: none;"
+                    aria-label="写真を選択">
+                
+                <div class="photo-upload-area">
+                    <div id="photoPreviewContainer" class="photo-preview-container">
+                        <!-- 写真プレビューがここに表示される -->
+                    </div>
+                    <button type="button" id="addPhotoBtn" class="btn-add-photo" aria-label="写真を追加">
+                        <span class="add-photo-icon">📷</span>
+                        <span class="add-photo-text">写真を追加</span>
+                    </button>
+                </div>
+                <p class="photo-help-text">JPEG, PNG, WebP形式。自動で圧縮されます。</p>
+            </div>
+
             <div class="modal-actions">
                 <button class="btn-cancel" id="modalCancel">キャンセル</button>
                 <button class="btn-save" id="modalSave">保存</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 画像拡大モーダル -->
+    <div id="imageViewModal" class="image-view-modal" role="dialog" aria-modal="true" style="display: none;">
+        <div class="image-modal-overlay"></div>
+        <div class="image-modal-content">
+            <button class="image-modal-close" aria-label="閉じる">×</button>
+            <button class="image-nav-prev" aria-label="前の画像" style="display: none;">‹</button>
+            <img id="imageViewImg" src="" alt="拡大表示">
+            <button class="image-nav-next" aria-label="次の画像" style="display: none;">›</button>
+            <div class="image-counter" id="imageCounter" style="display: none;">1 / 1</div>
         </div>
     </div>
 
