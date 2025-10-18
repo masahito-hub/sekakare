@@ -83,8 +83,8 @@ function displayLogs() {
 
     // 訪問日でソート（新→旧）
     const sortedVisits = [...visits].sort((a, b) => {
-        const dateA = a.createdAt || a.date || '';
-        const dateB = b.createdAt || b.date || '';
+        const dateA = a.visitedAt || a.createdAt || a.date || '';
+        const dateB = b.visitedAt || b.createdAt || b.date || '';
         return dateB.localeCompare(dateA);
     });
 
@@ -99,7 +99,7 @@ function displayLogs() {
         html += `<div class="month-header">${escapeHtml(monthKey)}</div>`;
 
         logs.forEach(visit => {
-            const visitDate = visit.createdAt || visit.date || '日付不明';
+            const visitDate = visit.visitedAt || visit.createdAt || visit.date || '日付不明';
             const placeId = visit.placeId || visit.id || visit.place_id || '';
             const name = visit.name || '店舗名不明';
             const address = visit.address || visit.vicinity || '住所不明';
@@ -133,7 +133,7 @@ function groupByMonth(visits) {
     const grouped = {};
 
     visits.forEach(visit => {
-        const dateStr = visit.createdAt || visit.date || '';
+        const dateStr = visit.visitedAt || visit.createdAt || visit.date || '';
         let monthKey = '日付不明';
 
         if (dateStr) {
@@ -170,7 +170,7 @@ function updateHeader() {
 
     if (dateRange && visits.length > 0) {
         const sortedDates = [...visits]
-            .map(v => v.createdAt || v.date || '')
+            .map(v => v.visitedAt || v.createdAt || v.date || '')
             .filter(d => d)
             .sort();
 
