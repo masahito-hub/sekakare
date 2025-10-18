@@ -25,6 +25,7 @@ function initLogsPage() {
     updateHeader();
     setupModalElements();
     setupModalListeners();
+    setupSortListener();
 }
 
 // 訪問履歴を読み込み（後方互換性あり）
@@ -81,12 +82,17 @@ function displayLogs() {
         return;
     }
 
-    // 訪問日でソート（新→旧）
-    const sortedVisits = [...visits].sort((a, b) => {
-        const dateA = a.visitedAt || a.createdAt || a.date || '';
-        const dateB = b.visitedAt || b.createdAt || b.date || '';
-        return dateB.localeCompare(dateA);
-    });
+    // 並び替え設定を取得（デフォルト: date-desc）
+    const sortType = localStorage.getItem('sortType') || 'date-desc';
+
+    // ソート実行
+    const sortedVisits = sortLogs(visits, sortType);
+
+    // ドロップダウンの選択状態を復元
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) {
+        sortSelect.value = sortType;
+    }
 
     // 月ごとにグループ化
     const groupedByMonth = groupByMonth(sortedVisits);
@@ -442,4 +448,95 @@ function showSaveSuccessMessage() {
     setTimeout(() => {
         toast.remove();
     }, 2000);
+}
+
+/**
+ * ログデータをソートする
+ * @param {Array} logs - ログデータの配列
+ * @param {string} sortType - ソートタイプ
+ * @returns {Array} ソート済みのログデータ
+ */
+function sortLogs(logs, sortType) {
+    const sortedLogs = [...logs]; // 元の配列を変更しないようコピー
+
+    switch (sortType) {
+        case 'date-desc': // 日付順（新→旧）
+            return sortedLogs.sort((a, b) => {
+                const dateA = a.visitedAt || a.createdAt || a.date || '';
+                const dateB = b.visitedAt || b.createdAt || b.date || '';
+                return dateB.localeCompare(dateA);
+            });
+
+        case 'date-asc': // 日付順（旧→新）
+            return sortedLogs.sort((a, b) => {
+                const dateA = a.visitedAt || a.createdAt || a.date || '';
+                const dateB = b.visitedAt || b.createdAt || b.date || '';
+                return dateA.localeCompare(dateB);
+            });
+
+        case 'region': // 地域別（都道府県）
+            return sortedLogs.sort((a, b) => {
+                const prefA = extractPrefecture(a.address || '');
+                const prefB = extractPrefecture(b.address || '');
+                return prefA.localeCompare(prefB, 'ja');
+            });
+
+        case 'visit-count': // 再訪回数順
+            // 事前に訪問回数をカウント（O(n)）
+            const visitCountMap = new Map();
+            logs.forEach(log => {
+                const name = log.name;
+                visitCountMap.set(name, (visitCountMap.get(name) || 0) + 1);
+            });
+
+            return sortedLogs.sort((a, b) => {
+                const countA = visitCountMap.get(a.name) || 0;
+                const countB = visitCountMap.get(b.name) || 0;
+                return countB - countA;
+            });
+
+        default:
+            return sortedLogs;
+    }
+}
+
+/**
+ * 住所から都道府県を抽出
+ * @param {string} address - 住所文字列
+ * @returns {string} 都道府県名
+ */
+function extractPrefecture(address) {
+    const prefectures = [
+        '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+        '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+        '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
+        '岐阜県', '静岡県', '愛知県', '三重県',
+        '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+        '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+        '徳島県', '香川県', '愛媛県', '高知県',
+        '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+    ];
+
+    for (const pref of prefectures) {
+        if (address.includes(pref)) {
+            return pref;
+        }
+    }
+    return 'その他';
+}
+
+/**
+ * 並び替えドロップダウンのイベントリスナーを設定
+ */
+function setupSortListener() {
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', (e) => {
+            const sortType = e.target.value;
+            // 選択した並び順を保存
+            localStorage.setItem('sortType', sortType);
+            // ログを再表示
+            displayLogs();
+        });
+    }
 }
