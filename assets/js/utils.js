@@ -31,7 +31,7 @@ function escapeHtml(str) {
  * @returns {boolean} 妥当な場合true
  */
 function isValidBase64Image(data) {
-    if (typeof str !== 'string') return false;
+    if (typeof data !== 'string') return false;
     
     // Base64画像データの形式チェック
     const base64Pattern = /^data:image\/(jpeg|jpg|png|webp);base64,/i;
