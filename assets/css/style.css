@@ -209,6 +209,8 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
+    min-width: 0; /* flexアイテムのテキスト省略に必要 */
 }
 
 .ticker-item.active {
@@ -239,6 +241,11 @@ body {
     text-decoration: none;
     font-size: 14px;
     transition: color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
 }
 
 .ticker-item a:hover {
