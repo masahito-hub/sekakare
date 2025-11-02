@@ -641,44 +641,70 @@ function updateHeatmapData(placeId, lat, lng) {
 
 // ヒートマップを表示
 function displayHeatmap() {
-    console.log('ヒートマップを表示中...');
+    console.log('改良版ヒートマップを表示中...');
 
-    // 既存の円を削除
     heatmapCircles.forEach(circle => circle.setMap(null));
     heatmapCircles = [];
 
-    // 各場所に円を表示
     Object.values(heatmapData).forEach(data => {
-        const baseOpacity = Math.min(Config.settings.heatmap.minOpacity + (data.count * 0.15), Config.settings.heatmap.maxOpacity);
-        const baseRadius = Config.settings.heatmap.baseRadius + (data.count * Config.settings.heatmap.radiusIncrement);
+        const color = getHeatmapColor(data.count);
+        const baseOpacity = getBaseOpacity(data.count);
+        const baseRadius = getBaseRadius(data.count);
 
-        // グラデーション効果のために複数の同心円を作成
-        const gradientLayers = 8; // グラデーションの層数
+        const gradientLayers = 16;
+
         for (let i = 0; i < gradientLayers; i++) {
             const layerRatio = (gradientLayers - i) / gradientLayers;
             const layerRadius = baseRadius * layerRatio;
-
-            // 中心から外側に向かって透明度を下げる
-            // 中心部は濃く、外縁は透明に近づく
-            const layerOpacity = baseOpacity * Math.pow(layerRatio, 2.5); // 指数関数でより自然なフェードアウト
+            const layerOpacity = baseOpacity * Math.pow(layerRatio, 3.0);
 
             const circle = new google.maps.Circle({
-                strokeColor: 'transparent', // 境界線を透明に
+                strokeColor: 'transparent',
                 strokeOpacity: 0,
                 strokeWeight: 0,
-                fillColor: '#ff8c00',
+                fillColor: color,
                 fillOpacity: layerOpacity,
                 map: map,
                 center: { lat: data.lat, lng: data.lng },
                 radius: layerRadius,
-                clickable: false // クリックイベントを無効化
+                clickable: false
             });
 
             heatmapCircles.push(circle);
         }
     });
 
-    console.log(`ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+    console.log(`改良版ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+}
+
+/**
+ * 訪問回数に応じた色を返す
+ */
+function getHeatmapColor(count) {
+    if (count >= 10) return '#DC143C';  // クリムゾン
+    if (count >= 5) return '#FF6347';   // トマトレッド
+    if (count >= 3) return '#FF8C00';   // ダークオレンジ
+    return '#FFA500';                    // オレンジ
+}
+
+/**
+ * 訪問回数に応じた基本透明度を返す
+ */
+function getBaseOpacity(count) {
+    const minOpacity = 0.15;
+    const maxOpacity = 0.6;
+    const opacityIncrement = 0.08;
+    return Math.min(minOpacity + (count * opacityIncrement), maxOpacity);
+}
+
+/**
+ * 訪問回数に応じた基本半径を返す
+ */
+function getBaseRadius(count) {
+    const baseRadius = 200;
+    const radiusIncrement = 50;
+    const maxRadius = 800;
+    return Math.min(baseRadius + (count * radiusIncrement), maxRadius);
 }
 
 // ログを表示
