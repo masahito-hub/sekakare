@@ -639,9 +639,26 @@ function updateHeatmapData(placeId, lat, lng) {
     localStorage.setItem(Config.storageKeys.heatmapData, JSON.stringify(heatmapData));
 }
 
+// ヒートマップの基本透明度を計算
+function getBaseOpacity(count) {
+    const minOpacity = Config.settings.heatmap.minOpacity;
+    const maxOpacity = Config.settings.heatmap.maxOpacity;
+    const opacityIncrement = 0.08;
+    return Math.min(minOpacity + (count * opacityIncrement), maxOpacity);
+}
+
+// ヒートマップの基本半径を計算
+function getBaseRadius(count) {
+    const baseRadius = Config.settings.heatmap.baseRadius;
+    const radiusIncrement = Config.settings.heatmap.radiusIncrement;
+    const maxRadius = 800;
+    return Math.min(baseRadius + (count * radiusIncrement), maxRadius);
+}
+
 // ヒートマップを表示
 function displayHeatmap() {
-    console.log('ヒートマップを表示中...');
+    console.time('heatmap-render');
+    console.log('改良版ヒートマップを表示中...');
 
     // 既存の円を削除
     heatmapCircles.forEach(circle => circle.setMap(null));
@@ -649,8 +666,8 @@ function displayHeatmap() {
 
     // 各場所に円を表示
     Object.values(heatmapData).forEach(data => {
-        const baseOpacity = Math.min(Config.settings.heatmap.minOpacity + (data.count * 0.15), Config.settings.heatmap.maxOpacity);
-        const baseRadius = Config.settings.heatmap.baseRadius + (data.count * Config.settings.heatmap.radiusIncrement);
+        const baseOpacity = getBaseOpacity(data.count);
+        const baseRadius = getBaseRadius(data.count);
 
         // グラデーション効果のために複数の同心円を作成
         const gradientLayers = 8; // グラデーションの層数
@@ -678,7 +695,9 @@ function displayHeatmap() {
         }
     });
 
-    console.log(`ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+    console.timeEnd('heatmap-render');
+    console.log(`改良版ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
+    console.log(`Total circles: ${heatmapCircles.length}`);
 }
 
 // ログを表示
