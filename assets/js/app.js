@@ -6,6 +6,7 @@ let curryLogs = JSON.parse(localStorage.getItem(Config.storageKeys.curryLogs) ||
 let heatmapData = JSON.parse(localStorage.getItem(Config.storageKeys.heatmapData) || '{}');
 let markers = [];
 let heatmapCircles = [];
+let zoomListenerAdded = false; // ズームリスナーの重複防止フラグ
 let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievements) || '{}');
 let searchTimeout;
 let isManualSearch = false;  // 手動検索フラグを追加
@@ -663,51 +664,77 @@ function getBaseRadius(count) {
     return Math.min(baseRadius + (count * radiusIncrement), maxRadius);
 }
 
+/**
+ * ズームレベルに応じたヒートマップ半径（ピクセル）を計算
+ * @param {number} zoom - 現在のズームレベル
+ * @returns {number} 半径（ピクセル）
+ */
+function getHeatmapRadius(zoom) {
+    const config = Config.settings.heatmap;
+    const minPx = config.minRadiusPx || 8;   // zoom 6での最小半径
+    const maxPx = config.maxRadiusPx || 40;  // zoom 18での最大半径
+    const zMin = 6;
+    const zMax = 18;
+
+    // 線形補間
+    const radius = (zoom - zMin) * (maxPx - minPx) / (zMax - zMin) + minPx;
+    return Math.max(minPx, Math.min(maxPx, radius));
+}
+
 // ヒートマップを表示
 function displayHeatmap() {
     console.time('heatmap-render');
-    console.log('改良版ヒートマップを表示中...');
 
-    // 既存の円を削除
+    // 既存のCircle削除
     heatmapCircles.forEach(circle => circle.setMap(null));
     heatmapCircles = [];
 
-    // 各場所に円を表示
-    Object.values(heatmapData).forEach(data => {
-        const baseOpacity = getBaseOpacity(data.count);
-        const baseRadius = getBaseRadius(data.count);
-        const heatmapColor = getHeatmapColor(data.count);
-
-        // グラデーション効果のために複数の同心円を作成
-        const gradientLayers = 16; // グラデーションの層数
-        for (let i = 0; i < gradientLayers; i++) {
-            const layerRatio = (gradientLayers - i) / gradientLayers;
-            const layerRadius = baseRadius * layerRatio;
-
-            // 中心から外側に向かって透明度を下げる
-            // 中心部は濃く、外縁は透明に近づく
-            const layerOpacity = baseOpacity * Math.pow(layerRatio, 2.5); // 指数関数でより自然なフェードアウト
-
-            const circle = new google.maps.Circle({
-                strokeColor: 'transparent', // 境界線を透明に
-                strokeOpacity: 0,
-                strokeWeight: 0,
-                fillColor: heatmapColor,
-                fillOpacity: layerOpacity,
-                map: map,
-                center: { lat: data.lat, lng: data.lng },
-                radius: layerRadius,
-                clickable: false // クリックイベントを無効化
-            });
-
-            heatmapCircles.push(circle);
-        }
+    // HeatmapLayer用のデータ準備
+    const heatmapDataArray = Object.values(heatmapData).map(data => {
+        return {
+            location: new google.maps.LatLng(data.lat, data.lng),
+            weight: data.count
+        };
     });
 
+    // 🔧 Critical Fix 1: Visualization Library存在チェック
+    if (!google.maps.visualization || !google.maps.visualization.HeatmapLayer) {
+        console.error('Google Maps Visualization Library not loaded. Check if &libraries=visualization is included in the Maps API script.');
+        console.timeEnd('heatmap-render');
+        return;
+    }
+
+    // HeatmapLayer作成（初回のみ）
+    if (!window.heatmapLayer) {
+        window.heatmapLayer = new google.maps.visualization.HeatmapLayer({
+            data: heatmapDataArray,
+            map: map,
+            dissipating: true,  // ピクセル半径一定
+            opacity: 0.7,
+            gradient: null  // デフォルトのgradient（後でカスタマイズ可能）
+        });
+
+        // 🔧 Critical Fix 2: ズーム変更時の半径調整（リスナーは1回だけ追加）
+        if (!zoomListenerAdded) {
+            map.addListener('zoom_changed', () => {
+                if (window.heatmapLayer) {
+                    const radius = getHeatmapRadius(map.getZoom());
+                    window.heatmapLayer.set('radius', radius);
+                }
+            });
+            zoomListenerAdded = true;
+        }
+    } else {
+        // データ更新のみ
+        window.heatmapLayer.setData(heatmapDataArray);
+    }
+
+    // 初回の半径設定
+    const radius = getHeatmapRadius(map.getZoom());
+    window.heatmapLayer.set('radius', radius);
+
     console.timeEnd('heatmap-render');
-    console.log(`改良版ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
-    console.log(`Total circles: ${heatmapCircles.length}`);
-    console.log(`Performance: 1箇所あたり${gradientLayers}層のグラデーション`);
+    console.log(`HeatmapLayer: ${heatmapDataArray.length} 箇所を表示`);
 }
 
 // ログを表示
@@ -905,7 +932,7 @@ function setupEventListeners() {
 // 地図を読み込み
 function loadGoogleMaps() {
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${Config.API_KEY}&libraries=places,marker&callback=initMap`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${Config.API_KEY}&libraries=places,marker,visualization&callback=initMap`;
     script.async = true;
     script.onerror = () => {
         console.error('Google Maps APIの読み込みに失敗しました');
