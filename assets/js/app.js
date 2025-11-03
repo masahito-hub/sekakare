@@ -639,6 +639,14 @@ function updateHeatmapData(placeId, lat, lng) {
     localStorage.setItem(Config.storageKeys.heatmapData, JSON.stringify(heatmapData));
 }
 
+// ヒートマップの色を取得（訪問回数に応じて変化）
+function getHeatmapColor(count) {
+    if (count >= 10) return '#DC143C';  // クリムゾン
+    if (count >= 5) return '#FF6347';   // トマトレッド
+    if (count >= 3) return '#FF8C00';   // ダークオレンジ
+    return '#FFA500';                    // オレンジ
+}
+
 // ヒートマップの基本透明度を計算
 function getBaseOpacity(count) {
     const minOpacity = Config.settings.heatmap.minOpacity;
@@ -668,9 +676,10 @@ function displayHeatmap() {
     Object.values(heatmapData).forEach(data => {
         const baseOpacity = getBaseOpacity(data.count);
         const baseRadius = getBaseRadius(data.count);
+        const heatmapColor = getHeatmapColor(data.count);
 
         // グラデーション効果のために複数の同心円を作成
-        const gradientLayers = 8; // グラデーションの層数
+        const gradientLayers = 16; // グラデーションの層数
         for (let i = 0; i < gradientLayers; i++) {
             const layerRatio = (gradientLayers - i) / gradientLayers;
             const layerRadius = baseRadius * layerRatio;
@@ -683,7 +692,7 @@ function displayHeatmap() {
                 strokeColor: 'transparent', // 境界線を透明に
                 strokeOpacity: 0,
                 strokeWeight: 0,
-                fillColor: '#ff8c00',
+                fillColor: heatmapColor,
                 fillOpacity: layerOpacity,
                 map: map,
                 center: { lat: data.lat, lng: data.lng },
@@ -698,6 +707,7 @@ function displayHeatmap() {
     console.timeEnd('heatmap-render');
     console.log(`改良版ヒートマップ ${Object.keys(heatmapData).length} 箇所を表示`);
     console.log(`Total circles: ${heatmapCircles.length}`);
+    console.log(`Performance: 1箇所あたり${gradientLayers}層のグラデーション`);
 }
 
 // ログを表示
