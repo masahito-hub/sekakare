@@ -38,7 +38,9 @@ const Config = {
             minOpacity: 0.3,
             maxOpacity: 0.8,
             baseRadius: 100,
-            radiusIncrement: 50
+            radiusIncrement: 50,
+            minRadiusPx: 8,   // zoom 6（広域）での半径（ピクセル）
+            maxRadiusPx: 40   // zoom 18（近接）での半径（ピクセル）
         }
     },
 
