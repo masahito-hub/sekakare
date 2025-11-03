@@ -11,6 +11,11 @@ let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievemen
 let searchTimeout;
 let isManualSearch = false;  // 手動検索フラグを追加
 
+// 自動検索のズーム閾値（ヒステリシス付き）
+const AUTO_ZOOM_ON = 13;   // 13以上でON（区・市レベル）
+const AUTO_ZOOM_OFF = 12;  // 12以下でOFF（広域表示では自動検索無効化）
+let autoSearchEnabled = false;  // 自動検索の有効/無効フラグ
+
 // ヘルパー関数: 訪問済みチェック
 function isPlaceVisited(placeId) {
     return Array.isArray(curryLogs) && curryLogs.some(log => log.id === placeId);
@@ -184,6 +189,12 @@ function setupAutoSearch() {
 
 // 地図移動時の自動検索関数（新発見特化モード + GAイベント付き）
 async function autoSearchCurryShops(location) {
+    // 広域表示では自動検索をスキップ
+    if (!autoSearchEnabled) {
+        console.log('自動検索スキップ（広域表示モード: zoom <= 12）');
+        return;
+    }
+
     updateDebugInfo('<strong>🗺️ 地図移動検出</strong> この周辺のカレー店を自動検索中...');
 
     // locationオブジェクトから正しい座標を取得
@@ -706,20 +717,42 @@ function displayHeatmap() {
 
     // HeatmapLayer作成（初回のみ）
     if (!window.heatmapLayer) {
+        // カレー色グラデーション定義（淡黄→黄橙→オレンジ→濃橙茶→ブラウン）
+        const curryGradient = [
+            'rgba(0,0,0,0)',          // 透明
+            'rgba(255,214,102,0.28)', // 淡いカレー黄 (#FFD666)
+            'rgba(255,186,73,0.55)',  // 黄橙 (#FFBA49)
+            'rgba(255,140,0,0.80)',   // オレンジ (#FF8C00)
+            'rgba(220,102,25,0.95)',  // 濃橙茶 (#DC6619)
+            'rgba(139,69,19,1.0)'     // ブラウン (#8B4513)
+        ];
+
         window.heatmapLayer = new google.maps.visualization.HeatmapLayer({
             data: heatmapDataArray,
             map: map,
             dissipating: true,  // ピクセル半径一定
             opacity: 0.7,
-            gradient: null  // デフォルトのgradient（後でカスタマイズ可能）
+            gradient: curryGradient  // カレー色グラデーションを適用
         });
 
         // 🔧 Critical Fix 2: ズーム変更時の半径調整（リスナーは1回だけ追加）
         if (!zoomListenerAdded) {
             map.addListener('zoom_changed', () => {
+                // ヒートマップ半径調整
                 if (window.heatmapLayer) {
                     const radius = getHeatmapRadius(map.getZoom());
                     window.heatmapLayer.set('radius', radius);
+                }
+
+                // 自動検索のズーム制御（ヒステリシス付き）
+                const z = map.getZoom();
+                if (!autoSearchEnabled && z >= AUTO_ZOOM_ON) {
+                    autoSearchEnabled = true;
+                    console.log('自動検索: ON (zoom >= 13)');
+                }
+                if (autoSearchEnabled && z <= AUTO_ZOOM_OFF) {
+                    autoSearchEnabled = false;
+                    console.log('自動検索: OFF (zoom <= 12)');
                 }
             });
             zoomListenerAdded = true;
