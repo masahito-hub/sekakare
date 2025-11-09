@@ -677,19 +677,25 @@ function getBaseRadius(count) {
 
 /**
  * ズームレベルに応じたヒートマップ半径（ピクセル）を計算
+ * Phase 2: 非線形スケーリング（広域を厚めに、近接は自然に）
  * @param {number} zoom - 現在のズームレベル
  * @returns {number} 半径（ピクセル）
  */
 function getHeatmapRadius(zoom) {
     const config = Config.settings.heatmap;
-    const minPx = config.minRadiusPx || 8;   // zoom 6での最小半径
-    const maxPx = config.maxRadiusPx || 40;  // zoom 18での最大半径
+    const minPx = config.minRadiusPx || 35;  // zoom 6での最小半径（デフォルト35）
+    const maxPx = config.maxRadiusPx || 55;  // zoom 18での最大半径（デフォルト55）
     const zMin = 6;
     const zMax = 18;
 
-    // 線形補間
-    const radius = (zoom - zMin) * (maxPx - minPx) / (zMax - zMin) + minPx;
-    return Math.max(minPx, Math.min(maxPx, radius));
+    // 正規化（0-1の範囲に）
+    const t = Math.max(0, Math.min(1, (zoom - zMin) / (zMax - zMin)));
+
+    // 非線形イージング（広域を厚めに）
+    const eased = Math.pow(t, 0.8);
+
+    const radius = minPx + (maxPx - minPx) * eased;
+    return Math.round(radius);
 }
 
 // ヒートマップを表示
@@ -700,11 +706,11 @@ function displayHeatmap() {
     heatmapCircles.forEach(circle => circle.setMap(null));
     heatmapCircles = [];
 
-    // HeatmapLayer用のデータ準備
+    // HeatmapLayer用のデータ準備（minWeight boost付き）
     const heatmapDataArray = Object.values(heatmapData).map(data => {
         return {
             location: new google.maps.LatLng(data.lat, data.lng),
-            weight: data.count
+            weight: Math.max(data.count, 2)  // 最小weight=2を保証（孤立点の視認性向上）
         };
     });
 
@@ -717,13 +723,13 @@ function displayHeatmap() {
 
     // HeatmapLayer作成（初回のみ）
     if (!window.heatmapLayer) {
-        // カレー色グラデーション定義（淡黄→黄橙→オレンジ→濃橙茶→ブラウン）
+        // カレー色グラデーション定義（Phase 2: alpha値を調整して塗り感を向上）
         const curryGradient = [
             'rgba(0,0,0,0)',          // 透明
-            'rgba(255,214,102,0.28)', // 淡いカレー黄 (#FFD666)
-            'rgba(255,186,73,0.55)',  // 黄橙 (#FFBA49)
-            'rgba(255,140,0,0.80)',   // オレンジ (#FF8C00)
-            'rgba(220,102,25,0.95)',  // 濃橙茶 (#DC6619)
+            'rgba(255,214,102,0.45)', // 淡いカレー黄 (#FFD666) - alpha up: 0.28→0.45
+            'rgba(255,186,73,0.60)',  // 黄橙 (#FFBA49) - alpha up: 0.55→0.60
+            'rgba(255,140,0,0.85)',   // オレンジ (#FF8C00) - alpha up: 0.80→0.85
+            'rgba(205,90,20,1.0)',    // 濃橙茶 - color adjust: #DC6619→#CD5A14
             'rgba(139,69,19,1.0)'     // ブラウン (#8B4513)
         ];
 
@@ -731,7 +737,8 @@ function displayHeatmap() {
             data: heatmapDataArray,
             map: map,
             dissipating: true,  // ピクセル半径一定
-            opacity: 0.7,
+            opacity: 0.85,      // Phase 2: 0.7 → 0.85（塗り感を向上）
+            maxIntensity: 3,    // Phase 2: 孤立点の視認性向上（weight=1が33%の濃さ）
             gradient: curryGradient  // カレー色グラデーションを適用
         });
 
