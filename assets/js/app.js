@@ -178,6 +178,19 @@ function setupAutoSearch() {
                 return;
             }
 
+            // 🔧 追加: 広域表示では自動検索をスキップ
+            if (!autoSearchEnabled) {
+                console.log('🚫 検索スキップ (zoom < 13)');
+
+                // 既存マーカーを削除
+                if (markers && markers.length > 0) {
+                    markers.forEach(marker => marker.setMap(null));
+                    markers = [];
+                    console.log('広域表示モードに切り替え - マーカーをクリア');
+                }
+                return;
+            }
+
             const center = map.getCenter();
             if (center) {
                 console.log('地図移動検出 - 周辺のカレー店を検索中...');
