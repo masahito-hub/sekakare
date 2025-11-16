@@ -253,6 +253,11 @@ body {
     text-decoration: underline;
 }
 
+/* PR枠の背景色 */
+.ticker-item-pr {
+    background: linear-gradient(90deg, #fffbea 0%, #fff9e6 100%) !important;
+}
+
 /* マーカーアニメーション */
 @keyframes markerScaleIn {
     from {

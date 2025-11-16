@@ -1,0 +1,65 @@
+[
+  {
+    "id": "2025-11-16-sample1",
+    "title": "東京カレーフェス2025開催決定🎉",
+    "url": "https://example.com/curry-fes-2025",
+    "tag": "event",
+    "published_at": "2025-11-16T00:00:00.000Z",
+    "expires_at": "2025-12-15",
+    "approved_at": "2025-11-16T00:00:00.000Z"
+  },
+  {
+    "id": "2025-11-15-sample2",
+    "title": "渋谷に本格スパイスカレー新店オープン🏪",
+    "url": "https://example.com/shibuya-new-shop",
+    "tag": "new_shop",
+    "published_at": "2025-11-15T00:00:00.000Z",
+    "expires_at": "",
+    "approved_at": "2025-11-15T00:00:00.000Z"
+  },
+  {
+    "id": "2025-11-14-sample3",
+    "title": "カレーの歴史を学ぶ企画展📚",
+    "url": "https://example.com/curry-history",
+    "tag": "culture",
+    "published_at": "2025-11-14T00:00:00.000Z",
+    "expires_at": "2025-12-20",
+    "approved_at": "2025-11-14T00:00:00.000Z"
+  },
+  {
+    "id": "2025-11-13-sample4",
+    "title": "スパイスから作る本格カレー講座💡",
+    "url": "https://example.com/curry-lesson",
+    "tag": "tip",
+    "published_at": "2025-11-13T00:00:00.000Z",
+    "expires_at": "",
+    "approved_at": "2025-11-13T00:00:00.000Z"
+  },
+  {
+    "id": "2025-11-12-sample5",
+    "title": "全国のカレー店がSNSキャンペーン🎁",
+    "url": "https://example.com/sns-campaign",
+    "tag": "campaign",
+    "published_at": "2025-11-12T00:00:00.000Z",
+    "expires_at": "2025-11-30",
+    "approved_at": "2025-11-12T00:00:00.000Z"
+  },
+  {
+    "id": "2025-11-11-sample6",
+    "title": "京都の名店がミシュラン獲得🏆",
+    "url": "https://example.com/kyoto-michelin",
+    "tag": "culture",
+    "published_at": "2025-11-11T00:00:00.000Z",
+    "expires_at": "",
+    "approved_at": "2025-11-11T00:00:00.000Z"
+  },
+  {
+    "id": "2025-11-10-sample7",
+    "title": "横浜スパイスフェス11/20開催🎪",
+    "url": "https://example.com/yokohama-spice-fes",
+    "tag": "event",
+    "published_at": "2025-11-10T00:00:00.000Z",
+    "expires_at": "2025-11-20",
+    "approved_at": "2025-11-10T00:00:00.000Z"
+  }
+]

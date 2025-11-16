@@ -1,0 +1,30 @@
+{
+  "name": "sekakare-ticker-automation",
+  "version": "1.0.0",
+  "description": "セカカレ ティッカー半自動更新システム",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "notify": "node src/fetch_rss.js && node src/parse_and_filter.js && node src/summarize.js && node src/notify_slack.js",
+    "finalize": "node src/collect_reactions.js && node src/update_archive.js && node src/generate_ticker.js && node src/deploy.js && node src/notify_result.js",
+    "rebuild": "node src/update_archive.js && node src/generate_ticker.js && node src/deploy.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ticker",
+    "automation",
+    "rss",
+    "slack",
+    "chatgpt"
+  ],
+  "author": "masahito-hub",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^3.3.0",
+    "rss-parser": "^3.13.0",
+    "openai": "^4.20.0",
+    "@slack/web-api": "^6.10.0",
+    "dotenv": "^16.3.1",
+    "basic-ftp": "^5.0.0"
+  }
+}
