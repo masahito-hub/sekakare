@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://maps.googleapis.com https://*.gstatic.com https://www.googletagmanager.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://maps.googleapis.com https://places.googleapis.com https://www.google-analytics.com https://www.googletagmanager.com; font-src 'self' data: https://fonts.gstatic.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://maps.googleapis.com https://*.gstatic.com https://www.googletagmanager.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://sekakare.life https://maps.googleapis.com https://places.googleapis.com https://www.google-analytics.com https://www.googletagmanager.com; font-src 'self' data: https://fonts.gstatic.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
     
     <title>セカカレ - あなたのカレー体験を記録しよう</title>
     <meta name="description" content="食べたカレーを地図上に記録して、あなただけのカレーマップを作成。全国のカレー店を発見して、カレー巡りを楽しもう！">
@@ -111,9 +111,10 @@
     </div>
 
     <div id="tickerContainer" class="ticker-container">
-        <div id="tickerItem" class="ticker-item active">
-            <span class="ticker-category">[ニュース]</span>
-            <a href="#" target="_blank">読み込み中...</a>
+        <div id="tickerWrapper" class="ticker-wrapper">
+            <div id="tickerContent" class="ticker-content">
+                <!-- ティッカーアイテムがJavaScriptで動的に挿入されます -->
+            </div>
         </div>
     </div>
 

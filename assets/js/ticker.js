@@ -1,31 +1,29 @@
-// ティッカー機能実装
+// ティッカー機能実装（JSON版）
 
 // グローバル変数定義
 let tickerData = [];
-let currentTickerIndex = 0;
-let rotationTimer = null;
 let isTickerEnabled = false;
 
 // キャッシュ管理
 const CACHE_KEY = 'sekakare_ticker_cache';
 const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5分
 
+// アニメーション設定
+const SCROLL_SPEED = 50; // ピクセル/秒
+const ITEM_GAP = 40; // アイテム間の間隔（px）
+
 // DOM要素のキャッシュ
 const elements = {
     tickerContainer: null,
-    tickerItem: null,
-    categorySpan: null,
-    linkElement: null
+    tickerWrapper: null,
+    tickerContent: null
 };
 
 // 初期化時にDOM要素をキャッシュ
 function initDOMElements() {
     elements.tickerContainer = document.getElementById('tickerContainer');
-    elements.tickerItem = document.getElementById('tickerItem');
-    if (elements.tickerItem) {
-        elements.categorySpan = elements.tickerItem.querySelector('.ticker-category');
-        elements.linkElement = elements.tickerItem.querySelector('a');
-    }
+    elements.tickerWrapper = document.getElementById('tickerWrapper');
+    elements.tickerContent = document.getElementById('tickerContent');
 }
 
 // URL検証関数（セキュリティ対策）
@@ -83,9 +81,9 @@ function setCache(items) {
     }
 }
 
-// CSV取得・パース
+// ticker.json取得・パース
 async function fetchTickerData() {
-    const csvUrl = '/assets/data/ticker-data.csv';
+    const jsonUrl = 'https://sekakare.life/ticker.json';
 
     try {
         // キャッシュチェック
@@ -95,51 +93,32 @@ async function fetchTickerData() {
             return cached;
         }
 
-        console.log('CSVを取得中...');
-        const response = await fetch(csvUrl);
+        console.log('ticker.jsonを取得中...');
+        const response = await fetch(jsonUrl);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const csvText = await response.text();
+        const jsonData = await response.json();
 
-        return new Promise((resolve, reject) => {
-            Papa.parse(csvText, {
-                header: true,
-                complete: (results) => {
-                    console.log('CSV解析完了:', results.data.length + '件');
+        console.log('ticker.json取得完了:', jsonData.length + '件');
 
-                    // CSV解析エラーの詳細表示
-                    if (results.errors.length > 0) {
-                        console.warn('CSV解析でエラーが発生:', results.errors);
-                        results.errors.forEach(error => {
-                            console.warn('エラー詳細:', error);
-                        });
-                    }
+        // データのサニタイゼーション（XSS対策）
+        const sanitizedData = jsonData.map(item => ({
+            slot: parseInt(item.slot) || 999,
+            id: escapeHtml(item.id),
+            type: escapeHtml(item.type), // "pr" or "news"
+            title: escapeHtml(item.title),
+            url: item.url, // URLはisValidUrlで検証
+            tag: escapeHtml(item.tag || ''), // newsの場合のタグ（event, trend等）
+            published_at: item.published_at,
+            expires_at: item.expires_at || ''
+        }));
 
-                    // データのサニタイゼーション（XSS対策）
-                    const sanitizedData = results.data.map(item => ({
-                        id: escapeHtml(item.id),
-                        title: escapeHtml(item.title),
-                        url: item.url, // URLはisValidUrlで検証
-                        category: escapeHtml(item.category),
-                        status: escapeHtml(item.status),
-                        priority: parseInt(item.priority) || 999,
-                        published_at: item.published_at,
-                        expires_at: item.expires_at
-                    }));
-
-                    resolve(sanitizedData);
-                },
-                error: (error) => {
-                    console.error('CSV解析エラー:', error);
-                    reject(error);
-                }
-            });
-        });
+        return sanitizedData;
     } catch (error) {
-        console.error('データ取得エラー:', error);
+        console.error('ticker.json取得エラー:', error);
         throw error;
     }
 }
@@ -149,9 +128,6 @@ function filterActiveItems(items) {
     const now = new Date();
 
     return items.filter(item => {
-        // status=activeチェック
-        if (item.status !== 'active') return false;
-
         // 期限チェック
         if (item.expires_at) {
             const expires = new Date(item.expires_at);
@@ -162,88 +138,76 @@ function filterActiveItems(items) {
     });
 }
 
-// ソート処理
+// ソート処理（slot番号順）
 function sortItems(items) {
     return items.sort((a, b) => {
-        // priority昇順
-        if (a.priority !== b.priority) {
-            return a.priority - b.priority;
-        }
-
-        // published_at降順
-        const dateA = new Date(a.published_at || 0);
-        const dateB = new Date(b.published_at || 0);
-        return dateB - dateA;
+        // slot番号昇順
+        return a.slot - b.slot;
     });
 }
 
-// ティッカー表示
-function displayTickerItem(item) {
-    if (!elements.tickerItem) {
-        initDOMElements();
-        if (!elements.tickerItem) return;
-    }
-
+// ティッカーアイテムのHTML生成
+function createTickerItemHTML(item) {
     // カテゴリ表示
     let categoryText = '[ニュース]';
     let categoryClass = 'ticker-category-news';
+    let emoji = '🍛';
 
-    if (item.category === 'pr') {
+    if (item.type === 'pr') {
         categoryText = '[PR]';
         categoryClass = 'ticker-category-pr';
+        emoji = '✨';
+    } else if (item.tag === 'event') {
+        emoji = '🎉';
+    } else if (item.tag === 'trend') {
+        emoji = '🔥';
     }
 
-    // DOM更新（XSS対策済み）
-    if (elements.categorySpan) {
-        elements.categorySpan.textContent = categoryText;
-        elements.categorySpan.className = 'ticker-category ' + categoryClass;
-    }
+    const title = item.title || '（タイトルなし）';
+    const validUrl = isValidUrl(item.url);
+    const href = validUrl ? item.url : '#';
+    const target = validUrl ? '_blank' : '_self';
+    const rel = validUrl ? 'noopener noreferrer' : '';
 
-    if (elements.linkElement) {
-        elements.linkElement.textContent = item.title || '（タイトルなし）';
-
-        // URL検証してから設定
-        if (isValidUrl(item.url)) {
-            elements.linkElement.href = item.url;
-            elements.linkElement.target = '_blank';
-            elements.linkElement.rel = 'noopener noreferrer'; // セキュリティ強化
-        } else {
-            elements.linkElement.href = '#';
-            elements.linkElement.target = '_self';
-            elements.linkElement.removeAttribute('rel');
-        }
-    }
+    return `
+        <div class="ticker-item">
+            <span class="ticker-emoji">${emoji}</span>
+            <span class="ticker-category ${categoryClass}">${categoryText}</span>
+            <a href="${href}" target="${target}" ${rel ? `rel="${rel}"` : ''}>${title}</a>
+        </div>
+    `;
 }
 
-// ローテーション処理
-function startRotation() {
-    if (tickerData.length === 0) return;
+// 横スクロールアニメーション開始
+function startScrollAnimation() {
+    if (!elements.tickerContent || tickerData.length === 0) return;
 
-    // 最初のアイテムを表示
-    displayTickerItem(tickerData[currentTickerIndex]);
+    // ティッカーアイテムのHTML生成（2セット用意して無限ループ）
+    let itemsHTML = '';
+    tickerData.forEach(item => {
+        itemsHTML += createTickerItemHTML(item);
+    });
 
-    // タイマークリア（重複防止）
-    if (rotationTimer) {
-        clearInterval(rotationTimer);
+    // 2セット表示（無限ループ用）
+    elements.tickerContent.innerHTML = itemsHTML + itemsHTML;
+
+    // CSS Animationで横スクロール実装
+    // アニメーション時間を計算（全アイテムの幅に基づく）
+    const items = elements.tickerContent.querySelectorAll('.ticker-item');
+    if (items.length === 0) return;
+
+    // 最初の半分のアイテムの合計幅を計算
+    let totalWidth = 0;
+    const halfLength = items.length / 2;
+    for (let i = 0; i < halfLength; i++) {
+        totalWidth += items[i].offsetWidth + ITEM_GAP;
     }
 
-    // 5秒間隔でローテーション
-    rotationTimer = setInterval(() => {
-        // フェードアウト
-        if (elements.tickerItem) {
-            elements.tickerItem.classList.remove('active');
+    // アニメーション時間を計算（幅 / 速度）
+    const duration = totalWidth / SCROLL_SPEED;
 
-            setTimeout(() => {
-                currentTickerIndex = (currentTickerIndex + 1) % tickerData.length;
-                displayTickerItem(tickerData[currentTickerIndex]);
-
-                // フェードイン
-                if (elements.tickerItem) {
-                    elements.tickerItem.classList.add('active');
-                }
-            }, 300);
-        }
-    }, 5000);
+    // CSSアニメーションを適用
+    elements.tickerContent.style.animation = `scroll ${duration}s linear infinite`;
 }
 
 // ティッカー初期化
@@ -261,7 +225,8 @@ async function initTicker() {
         if (elements.tickerContainer) {
             elements.tickerContainer.style.display = 'none';
         }
-        document.getElementById('debugInfo').style.display = 'block';
+        const debugInfo = document.getElementById('debugInfo');
+        if (debugInfo) debugInfo.style.display = 'block';
         return;
     }
 
@@ -288,10 +253,11 @@ async function initTicker() {
             if (elements.tickerContainer) {
                 elements.tickerContainer.style.display = 'block';
             }
-            document.getElementById('debugInfo').style.display = 'none';
+            const debugInfo = document.getElementById('debugInfo');
+            if (debugInfo) debugInfo.style.display = 'none';
 
-            // ローテーション開始
-            startRotation();
+            // 横スクロールアニメーション開始
+            startScrollAnimation();
             isTickerEnabled = true;
         } else {
             console.log('表示するニュースがありません');
@@ -309,25 +275,25 @@ function handleTickerError() {
     if (elements.tickerContainer) {
         elements.tickerContainer.style.display = 'none';
     }
-    // デバッグモード削除により、エラー時もデバッグ情報は非表示
-    document.getElementById('debugInfo').style.display = 'none';
+    // エラー時はデバッグ情報も非表示
+    const debugInfo = document.getElementById('debugInfo');
+    if (debugInfo) debugInfo.style.display = 'none';
 }
 
 // クリーンアップ処理（メモリリーク防止）
 function cleanup() {
-    if (rotationTimer) {
-        clearInterval(rotationTimer);
-        rotationTimer = null;
+    // アニメーションを停止
+    if (elements.tickerContent) {
+        elements.tickerContent.style.animation = 'none';
+        elements.tickerContent.innerHTML = '';
     }
 
     // DOM参照をクリア
     elements.tickerContainer = null;
-    elements.tickerItem = null;
-    elements.categorySpan = null;
-    elements.linkElement = null;
+    elements.tickerWrapper = null;
+    elements.tickerContent = null;
 
     tickerData = [];
-    currentTickerIndex = 0;
     isTickerEnabled = false;
 }
 
@@ -342,6 +308,16 @@ window.addEventListener('storage', (e) => {
         initTicker();
     }
 });
+
+// ページ読み込み時に自動初期化
+if (typeof window !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTicker);
+    } else {
+        // 既に読み込み済みの場合は即座に実行
+        initTicker();
+    }
+}
 
 // エクスポート（テスト用）
 if (typeof module !== 'undefined' && module.exports) {
