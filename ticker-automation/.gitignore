@@ -1,0 +1,35 @@
+# Environment variables
+.env
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/*.log
+
+# Data files (generated)
+data/raw/*.xml
+data/raw/*.json
+data/slack_messages.json
+data/approved_news.json
+data/candidates.json
+data/summarized.json
+data/ticker.json
+
+# Keep initial data files
+!data/news_archive.json
+!data/pr_slots.json
+
+# Test coverage
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
