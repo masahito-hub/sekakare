@@ -1,0 +1,23 @@
+[
+  {
+    "id": "pr-2025-11-shop",
+    "title": "セカカレ公式グッズ販売中🛍️",
+    "url": "https://sekakare.life/shop",
+    "published_at": "2025-11-01",
+    "expires_at": "2025-11-30"
+  },
+  {
+    "id": "pr-2025-11-campaign",
+    "title": "カレー記録でポイントGET🎁",
+    "url": "https://sekakare.life/campaign",
+    "published_at": "2025-11-01",
+    "expires_at": "2025-12-31"
+  },
+  {
+    "id": "pr-2025-11-follow",
+    "title": "公式Xアカウントをフォロー📱",
+    "url": "https://x.com/sekakare",
+    "published_at": "2025-11-01",
+    "expires_at": ""
+  }
+]

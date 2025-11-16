@@ -1,0 +1,31 @@
+# 環境変数
+.env
+
+# Node modules
+node_modules/
+
+# ログファイル
+logs/*.log
+
+# 一時ファイル
+data/raw/*.xml
+data/raw/*.json
+data/candidates.json
+data/summarized.json
+data/approved_news.json
+data/slack_messages.json
+
+# macOS
+.DS_Store
+
+# エディタ設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# npm debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

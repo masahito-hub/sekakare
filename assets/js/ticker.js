@@ -83,9 +83,9 @@ function setCache(items) {
     }
 }
 
-// CSV取得・パース
+// JSON取得・パース
 async function fetchTickerData() {
-    const csvUrl = '/assets/data/ticker-data.csv';
+    const jsonUrl = '/ticker.json';
 
     try {
         // キャッシュチェック
@@ -95,49 +95,34 @@ async function fetchTickerData() {
             return cached;
         }
 
-        console.log('CSVを取得中...');
-        const response = await fetch(csvUrl);
+        console.log('JSONを取得中...');
+        const response = await fetch(jsonUrl);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const csvText = await response.text();
+        const data = await response.json();
 
-        return new Promise((resolve, reject) => {
-            Papa.parse(csvText, {
-                header: true,
-                complete: (results) => {
-                    console.log('CSV解析完了:', results.data.length + '件');
+        if (!Array.isArray(data)) {
+            throw new Error('Invalid data format: expected array');
+        }
 
-                    // CSV解析エラーの詳細表示
-                    if (results.errors.length > 0) {
-                        console.warn('CSV解析でエラーが発生:', results.errors);
-                        results.errors.forEach(error => {
-                            console.warn('エラー詳細:', error);
-                        });
-                    }
+        console.log('JSON解析完了:', data.length + '件');
 
-                    // データのサニタイゼーション（XSS対策）
-                    const sanitizedData = results.data.map(item => ({
-                        id: escapeHtml(item.id),
-                        title: escapeHtml(item.title),
-                        url: item.url, // URLはisValidUrlで検証
-                        category: escapeHtml(item.category),
-                        status: escapeHtml(item.status),
-                        priority: parseInt(item.priority) || 999,
-                        published_at: item.published_at,
-                        expires_at: item.expires_at
-                    }));
+        // データのサニタイゼーション（XSS対策）
+        const sanitizedData = data.map(item => ({
+            slot: parseInt(item.slot) || 999,
+            type: escapeHtml(item.type),
+            id: escapeHtml(item.id),
+            title: escapeHtml(item.title),
+            url: item.url, // URLはisValidUrlで検証
+            tag: escapeHtml(item.tag || item.category || ''),
+            published_at: item.published_at,
+            expires_at: item.expires_at
+        }));
 
-                    resolve(sanitizedData);
-                },
-                error: (error) => {
-                    console.error('CSV解析エラー:', error);
-                    reject(error);
-                }
-            });
-        });
+        return sanitizedData;
     } catch (error) {
         console.error('データ取得エラー:', error);
         throw error;
@@ -149,10 +134,7 @@ function filterActiveItems(items) {
     const now = new Date();
 
     return items.filter(item => {
-        // status=activeチェック
-        if (item.status !== 'active') return false;
-
-        // 期限チェック
+        // 期限チェック（expires_atがある場合のみ）
         if (item.expires_at) {
             const expires = new Date(item.expires_at);
             if (expires < now) return false;
@@ -165,15 +147,8 @@ function filterActiveItems(items) {
 // ソート処理
 function sortItems(items) {
     return items.sort((a, b) => {
-        // priority昇順
-        if (a.priority !== b.priority) {
-            return a.priority - b.priority;
-        }
-
-        // published_at降順
-        const dateA = new Date(a.published_at || 0);
-        const dateB = new Date(b.published_at || 0);
-        return dateB - dateA;
+        // slot昇順でソート
+        return a.slot - b.slot;
     });
 }
 
@@ -184,11 +159,11 @@ function displayTickerItem(item) {
         if (!elements.tickerItem) return;
     }
 
-    // カテゴリ表示
+    // カテゴリ表示（typeフィールドを使用）
     let categoryText = '[ニュース]';
     let categoryClass = 'ticker-category-news';
 
-    if (item.category === 'pr') {
+    if (item.type === 'pr') {
         categoryText = '[PR]';
         categoryClass = 'ticker-category-pr';
     }
@@ -211,6 +186,15 @@ function displayTickerItem(item) {
             elements.linkElement.href = '#';
             elements.linkElement.target = '_self';
             elements.linkElement.removeAttribute('rel');
+        }
+    }
+
+    // PR枠の場合、tickerItemに特別なクラスを追加
+    if (elements.tickerItem) {
+        if (item.type === 'pr') {
+            elements.tickerItem.classList.add('ticker-item-pr');
+        } else {
+            elements.tickerItem.classList.remove('ticker-item-pr');
         }
     }
 }
