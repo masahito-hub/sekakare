@@ -594,3 +594,137 @@ body.menu-open {
         display: flex; /* デスクトップでも表示 */
     }
 }
+
+/* カスタムポイント追加モーダル */
+.custom-point-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.custom-point-modal-overlay.active {
+    display: flex;
+}
+
+.custom-point-modal {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 25px;
+    position: relative;
+}
+
+.custom-point-modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #999;
+    cursor: pointer;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.custom-point-modal-close:hover {
+    color: #ff6b00;
+}
+
+.custom-point-modal-title {
+    color: #ff6b00;
+    margin-bottom: 20px;
+    font-size: 20px;
+}
+
+.custom-point-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    font-weight: bold;
+    color: #333;
+    font-size: 14px;
+}
+
+.form-group .required {
+    color: #ff6b00;
+}
+
+.form-group input[type="text"],
+.form-group input[type="date"],
+.form-group select,
+.form-group textarea {
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: inherit;
+    transition: border-color 0.3s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="date"]:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #ff8c00;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.form-buttons .btn {
+    flex: 1;
+}
+
+/* モバイル対応 */
+@media (max-width: 480px) {
+    .custom-point-modal {
+        width: 95%;
+        padding: 20px;
+        max-height: 85vh;
+    }
+
+    .custom-point-modal-title {
+        font-size: 18px;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="date"],
+    .form-group select,
+    .form-group textarea {
+        font-size: 16px; /* iOSのズーム防止 */
+    }
+}

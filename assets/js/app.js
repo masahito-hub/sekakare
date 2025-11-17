@@ -11,6 +11,10 @@ let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievemen
 let searchTimeout;
 let isManualSearch = false;  // 手動検索フラグを追加
 
+// カスタムポイント用の変数
+let pendingCustomPointLocation = null; // 地図クリックで保存された座標
+let customPointMarkers = []; // カスタムポイント用のマーカー配列
+
 // 自動検索のズーム閾値（ヒステリシス付き）
 const AUTO_ZOOM_ON = 13;   // 13以上でON（区・市レベル）
 const AUTO_ZOOM_OFF = 12;  // 12以下でOFF（広域表示では自動検索無効化）
@@ -133,6 +137,9 @@ function createMap(center, zoom) {
     // 検索ボックスを有効化
     document.getElementById('searchBox').disabled = false;
 
+    // 地図クリックイベントを設定
+    setupMapClickListener();
+
     // 地図移動時の自動検索を設定（条件付き実行）
     setupAutoSearch();
 
@@ -142,6 +149,9 @@ function createMap(center, zoom) {
 
     // ヒートマップを表示
     displayHeatmap();
+
+    // カスタムポイントマーカーを表示
+    displayCustomPointMarkers();
 
     // ログを表示
     displayLogs();
@@ -162,6 +172,132 @@ function createMap(center, zoom) {
             // URLパラメータをクリーンアップ
             window.history.replaceState({}, document.title, window.location.pathname);
         }
+    }
+}
+
+// 地図クリックリスナーの設定
+function setupMapClickListener() {
+    map.addListener('click', (event) => {
+        if (event.latLng) {
+            const lat = event.latLng.lat();
+            const lng = event.latLng.lng();
+            console.log('地図がクリックされました:', lat, lng);
+
+            // 重複チェック
+            const duplication = checkDuplicateNearby(lat, lng);
+            if (duplication.isDuplicate) {
+                const existingName = duplication.existingPoint ? duplication.existingPoint.name : '不明';
+                const confirmMsg = `近くに既存の記録があります\n「${existingName}」\n\nこのまま新しい地点を追加しますか？`;
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+            }
+
+            // モーダルを開く
+            showCustomPointModal(lat, lng);
+        }
+    });
+}
+
+// カスタムポイント追加モーダルを表示
+function showCustomPointModal(lat, lng) {
+    pendingCustomPointLocation = { lat, lng };
+
+    const modal = document.getElementById('customPointModalOverlay');
+    const form = document.getElementById('customPointForm');
+
+    if (!modal || !form) {
+        console.error('カスタムポイントモーダルが見つかりません');
+        return;
+    }
+
+    // フォームをリセット
+    form.reset();
+
+    // 今日の日付をデフォルトに設定
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('customPointDate').value = today;
+
+    // モーダルを表示
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    // 最初の入力欄にフォーカス
+    const nameInput = document.getElementById('customPointName');
+    if (nameInput) {
+        setTimeout(() => nameInput.focus(), 100);
+    }
+}
+
+// カスタムポイントモーダルを閉じる
+function closeCustomPointModal() {
+    const modal = document.getElementById('customPointModalOverlay');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    pendingCustomPointLocation = null;
+}
+
+// カスタムポイントフォーム送信ハンドラー
+function handleCustomPointSubmit(event) {
+    event.preventDefault();
+
+    if (!pendingCustomPointLocation) {
+        alert('位置情報が取得できませんでした。');
+        return;
+    }
+
+    // フォームデータを取得
+    const name = document.getElementById('customPointName').value.trim();
+    const type = document.getElementById('customPointType').value;
+    const date = document.getElementById('customPointDate').value;
+    const menu = document.getElementById('customPointMenu').value.trim();
+    const memo = document.getElementById('customPointMemo').value.trim();
+
+    // バリデーション
+    if (!name || !type) {
+        alert('店舗名と種類は必須です。');
+        return;
+    }
+
+    // 保存（custom-points.jsの関数を使用）
+    const point = saveCustomPoint({
+        lat: pendingCustomPointLocation.lat,
+        lng: pendingCustomPointLocation.lng,
+        name: name,
+        type: type,
+        date: date,
+        menu: menu,
+        memo: memo,
+        photos: []
+    });
+
+    if (point) {
+        console.log('カスタムポイント保存成功:', point);
+
+        // モーダルを閉じる
+        closeCustomPointModal();
+
+        // ヒートマップとログを更新
+        displayHeatmap();
+        displayCustomPointMarkers();
+        displayLogs();
+
+        // 成功メッセージ
+        alert('🍛 カレー体験が追加されました！');
+
+        // Google Analytics イベント
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'custom_point_added', {
+                'event_category': 'user_action',
+                'point_type': type,
+                'event_label': type,
+                'custom_parameter_1': 'custom_point'
+            });
+        }
+    } else {
+        alert('保存に失敗しました。');
     }
 }
 
@@ -727,6 +863,18 @@ function displayHeatmap() {
         };
     });
 
+    // カスタムポイントを追加
+    const customPoints = getUserCustomPoints();
+    const customPointsData = customPoints.map(point => {
+        return {
+            location: new google.maps.LatLng(point.lat, point.lng),
+            weight: 2  // カスタムポイントは常にweight=2
+        };
+    });
+
+    // データをマージ
+    const allData = [...heatmapDataArray, ...customPointsData];
+
     // 🔧 Critical Fix 1: Visualization Library存在チェック
     if (!google.maps.visualization || !google.maps.visualization.HeatmapLayer) {
         console.error('Google Maps Visualization Library not loaded. Check if &libraries=visualization is included in the Maps API script.');
@@ -747,7 +895,7 @@ function displayHeatmap() {
         ];
 
         window.heatmapLayer = new google.maps.visualization.HeatmapLayer({
-            data: heatmapDataArray,
+            data: allData,
             map: map,
             dissipating: true,  // ピクセル半径一定
             opacity: 0.85,      // Phase 2: 0.7 → 0.85（塗り感を向上）
@@ -779,7 +927,7 @@ function displayHeatmap() {
         }
     } else {
         // データ更新のみ
-        window.heatmapLayer.setData(heatmapDataArray);
+        window.heatmapLayer.setData(allData);
     }
 
     // 初回の半径設定
@@ -787,7 +935,73 @@ function displayHeatmap() {
     window.heatmapLayer.set('radius', radius);
 
     console.timeEnd('heatmap-render');
-    console.log(`HeatmapLayer: ${heatmapDataArray.length} 箇所を表示`);
+    console.log(`HeatmapLayer: ${allData.length} 箇所を表示 (Places: ${heatmapDataArray.length}, Custom: ${customPointsData.length})`);
+}
+
+// カスタムポイントマーカーを表示
+function displayCustomPointMarkers() {
+    // 既存のカスタムポイントマーカーを削除
+    customPointMarkers.forEach(marker => marker.setMap(null));
+    customPointMarkers = [];
+
+    // カスタムポイントを取得
+    const customPoints = getUserCustomPoints();
+
+    customPoints.forEach(point => {
+        try {
+            // Advanced Markerを使用
+            const markerContent = document.createElement('div');
+            markerContent.className = 'custom-marker';
+
+            const animationWrapper = document.createElement('div');
+            animationWrapper.className = 'marker-animation-wrapper';
+            animationWrapper.innerHTML = `<div style="font-size: 28px; line-height: 1;">✅</div>`;
+
+            markerContent.appendChild(animationWrapper);
+
+            const marker = new google.maps.marker.AdvancedMarkerElement({
+                map: map,
+                position: { lat: point.lat, lng: point.lng },
+                title: `${point.name} (${point.type})`,
+                content: markerContent
+            });
+
+            // クリックイベント
+            marker.addListener('click', () => {
+                showCustomPointPopup(point);
+            });
+
+            customPointMarkers.push(marker);
+        } catch (error) {
+            console.error('カスタムポイントマーカー作成エラー:', error);
+        }
+    });
+
+    console.log(`カスタムポイントマーカー: ${customPointMarkers.length}個を表示`);
+}
+
+// カスタムポイント用のポップアップを表示
+function showCustomPointPopup(point) {
+    const popup = document.getElementById('popupOverlay');
+    const title = document.getElementById('popupTitle');
+    const address = document.getElementById('popupAddress');
+    const btnAte = document.getElementById('btnAte');
+    const btnDetails = document.getElementById('btnDetails');
+
+    if (!popup || !title || !address) return;
+
+    title.textContent = `${point.name} ✅ (${point.type})`;
+    address.textContent = `訪問日: ${point.date || '不明'}${point.menu ? ' | ' + point.menu : ''}`;
+
+    // ボタンを非表示/変更
+    btnAte.style.display = 'none'; // カスタムポイントには「食べた」ボタンは不要
+    btnDetails.textContent = '詳細';
+    btnDetails.onclick = () => {
+        // カスタムポイントの詳細表示（将来の拡張用）
+        alert(`店舗名: ${point.name}\n種類: ${point.type}\n訪問日: ${point.date || '不明'}\nメニュー: ${point.menu || 'なし'}\nメモ: ${point.memo || 'なし'}`);
+    };
+
+    popup.style.display = 'block';
 }
 
 // ログを表示
@@ -795,16 +1009,31 @@ function displayLogs() {
     const logList = document.getElementById('logList');
     const logCount = document.getElementById('logCount');
 
-    if (!Array.isArray(curryLogs) || curryLogs.length === 0) {
+    // カスタムポイントを取得してマージ
+    const customPoints = getUserCustomPoints();
+    const allLogs = [...curryLogs];
+
+    // カスタムポイントを追加
+    customPoints.forEach(point => {
+        allLogs.push({
+            id: point.id,
+            name: point.name,
+            address: point.type,
+            date: point.date,
+            isCustomPoint: true
+        });
+    });
+
+    if (allLogs.length === 0) {
         logList.innerHTML = '<div class="loading">まだ記録がありません。地図上のカレー店をタップして記録を始めましょう！</div>';
         logCount.textContent = '0';
         return;
     }
 
-    logCount.textContent = Array.isArray(curryLogs) ? curryLogs.length : 0;
+    logCount.textContent = allLogs.length;
 
-    // 最新の記録を上に表示
-    const sortedLogs = [...curryLogs].reverse();
+    // 最新の記録を上に表示（カスタムポイントを含む）
+    const sortedLogs = [...allLogs].reverse();
 
     // 最大3件まで表示（それ以上は「もっと見る」リンク）
     const maxDisplay = 3;
@@ -818,11 +1047,11 @@ function displayLogs() {
     `).join('');
 
     // 3件以上ある場合は「もっと見る」リンクを追加
-    if (curryLogs.length > maxDisplay) {
+    if (allLogs.length > maxDisplay) {
         html += `
             <div style="text-align: center; margin-top: 10px;">
                 <a href="/logs.html" style="color: #ff6b00; text-decoration: none; font-weight: bold;">
-                    もっと見る (${curryLogs.length - maxDisplay}件) →
+                    もっと見る (${allLogs.length - maxDisplay}件) →
                 </a>
             </div>
         `;
@@ -866,8 +1095,14 @@ function checkAchievements() {
         console.warn('curryLogs is not an array');
         return;
     }
-    const visitCount = curryLogs.length;
-    const uniqueShops = new Set(curryLogs.map(log => log.id)).size;
+
+    // カスタムポイントを含めた総訪問数を計算
+    const customPoints = getUserCustomPoints();
+    const visitCount = curryLogs.length + customPoints.length;
+
+    // カスタムポイントを含めたユニーク店舗数を計算
+    const allIds = [...curryLogs.map(log => log.id), ...customPoints.map(p => p.id)];
+    const uniqueShops = new Set(allIds).size;
     const newBadges = [];
 
     // 新しく達成した実績をチェック
@@ -927,8 +1162,14 @@ function updateAchievementDisplay() {
         console.warn('curryLogs is not an array');
         return;
     }
-    const visitCount = curryLogs.length;
-    const uniqueShops = new Set(curryLogs.map(log => log.id)).size;
+
+    // カスタムポイントを含めた総訪問数を計算
+    const customPoints = getUserCustomPoints();
+    const visitCount = curryLogs.length + customPoints.length;
+
+    // カスタムポイントを含めたユニーク店舗数を計算
+    const allIds = [...curryLogs.map(log => log.id), ...customPoints.map(p => p.id)];
+    const uniqueShops = new Set(allIds).size;
     const achievementCount = Object.keys(achievements).length;
 
     // ログセクションに統計を追加
@@ -977,6 +1218,42 @@ function setupEventListeners() {
             if (query) {
                 console.log('検索実行:', query);
                 searchCurryByKeyword(query);
+            }
+        }
+    });
+
+    // カスタムポイントモーダルのイベントリスナー
+    const customPointForm = document.getElementById('customPointForm');
+    const customPointClose = document.getElementById('customPointModalClose');
+    const customPointCancel = document.getElementById('customPointCancel');
+    const customPointOverlay = document.getElementById('customPointModalOverlay');
+
+    if (customPointForm) {
+        customPointForm.addEventListener('submit', handleCustomPointSubmit);
+    }
+
+    if (customPointClose) {
+        customPointClose.addEventListener('click', closeCustomPointModal);
+    }
+
+    if (customPointCancel) {
+        customPointCancel.addEventListener('click', closeCustomPointModal);
+    }
+
+    if (customPointOverlay) {
+        customPointOverlay.addEventListener('click', (e) => {
+            if (e.target === customPointOverlay) {
+                closeCustomPointModal();
+            }
+        });
+    }
+
+    // ESCキーでモーダルを閉じる
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const customPointModal = document.getElementById('customPointModalOverlay');
+            if (customPointModal && customPointModal.classList.contains('active')) {
+                closeCustomPointModal();
             }
         }
     });

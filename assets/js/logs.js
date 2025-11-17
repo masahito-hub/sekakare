@@ -119,7 +119,7 @@ function initLogsPage() {
     setupImageViewModal();
 }
 
-// 訪問履歴を読み込み（後方互換性あり）
+// 訪問履歴を読み込み（後方互換性あり + カスタムポイント統合）
 function loadVisits() {
     try {
         const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.curryLogs)
@@ -148,6 +148,34 @@ function loadVisits() {
 
             // 更新されたデータを保存
             localStorage.setItem(storageKey, JSON.stringify(visits));
+        }
+
+        // カスタムポイントを取得してマージ（getUserCustomPoints関数を使用）
+        if (typeof getUserCustomPoints === 'function') {
+            const customPoints = getUserCustomPoints();
+
+            // カスタムポイントをvisits形式に変換
+            const convertedCustomPoints = customPoints.map(point => ({
+                id: point.id,
+                placeId: point.id,
+                name: point.name,
+                address: `${point.type}`, // 種類を住所フィールドに表示
+                vicinity: `${point.type}`,
+                date: point.date,
+                visitedAt: point.date,
+                createdAt: point.createdAt,
+                editedAt: point.editedAt || null,
+                menu: point.menu,
+                memo: point.memo,
+                photos: point.photos || [],
+                lat: point.lat,
+                lng: point.lng,
+                isCustomPoint: true // カスタムポイント識別フラグ
+            }));
+
+            // マージ
+            visits = [...visits, ...convertedCustomPoints];
+            console.log(`ログ読み込み完了: Places API ${visits.length - convertedCustomPoints.length}件 + Custom ${convertedCustomPoints.length}件`);
         }
     } catch (error) {
         console.error('訪問履歴の読み込みエラー:', error);
@@ -907,10 +935,26 @@ function saveEditedLog() {
         editedAt: new Date().toISOString()  // ISO 8601形式で保存
     };
 
-    // localStorageに保存
+    // localStorageに保存（カスタムポイントと通常ログを分けて保存）
     try {
-        localStorage.setItem(storageKey, JSON.stringify(visits));
-        console.log('[Save] ログを保存しました', visits[logIndex]);
+        // カスタムポイントの場合はupdateCustomPointを使用
+        if (visits[logIndex].isCustomPoint && typeof updateCustomPoint === 'function') {
+            const customPointId = visits[logIndex].id;
+            updateCustomPoint(customPointId, {
+                name: visits[logIndex].name,
+                date: visits[logIndex].visitedAt || visits[logIndex].date,
+                menu: visits[logIndex].menu,
+                memo: visits[logIndex].memo,
+                photos: visits[logIndex].photos
+            });
+            console.log('[Save] カスタムポイントを保存しました', customPointId);
+        } else {
+            // 通常のログの場合は既存の処理
+            // カスタムポイントを除外して保存
+            const regularLogs = visits.filter(v => !v.isCustomPoint);
+            localStorage.setItem(storageKey, JSON.stringify(regularLogs));
+            console.log('[Save] ログを保存しました', visits[logIndex]);
+        }
 
         // モーダルを閉じる
         closeEditModal();
