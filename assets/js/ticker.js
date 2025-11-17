@@ -9,8 +9,8 @@ const CACHE_KEY = 'sekakare_ticker_cache';
 const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5分
 
 // アニメーション設定
-const SCROLL_SPEED = 50; // ピクセル/秒
-const ITEM_GAP = 40; // アイテム間の間隔（px）
+const DISPLAY_DURATION = 5000; // 5秒表示
+const FADE_DURATION = 500; // 0.5秒フェード
 
 // DOM要素のキャッシュ
 const elements = {
@@ -18,6 +18,10 @@ const elements = {
     tickerWrapper: null,
     tickerContent: null
 };
+
+// フェードアニメーション用変数
+let currentIndex = 0;
+let tickerInterval = null;
 
 // 初期化時にDOM要素をキャッシュ
 function initDOMElements() {
@@ -178,36 +182,46 @@ function createTickerItemHTML(item) {
     `;
 }
 
-// 横スクロールアニメーション開始
-function startScrollAnimation() {
+// フェードイン・アウトアニメーション開始
+function startFadeAnimation() {
     if (!elements.tickerContent || tickerData.length === 0) return;
 
-    // ティッカーアイテムのHTML生成（2セット用意して無限ループ）
-    let itemsHTML = '';
-    tickerData.forEach(item => {
-        itemsHTML += createTickerItemHTML(item);
-    });
+    // 初期表示
+    currentIndex = 0;
+    showCurrentItem();
 
-    // 2セット表示（無限ループ用）
-    elements.tickerContent.innerHTML = itemsHTML + itemsHTML;
+    // 定期的に切り替え
+    tickerInterval = setInterval(showNextItem, DISPLAY_DURATION);
+}
 
-    // CSS Animationで横スクロール実装
-    // アニメーション時間を計算（全アイテムの幅に基づく）
-    const items = elements.tickerContent.querySelectorAll('.ticker-item');
-    if (items.length === 0) return;
+// 現在のアイテムを表示
+function showCurrentItem() {
+    if (!elements.tickerContent || tickerData.length === 0) return;
 
-    // 最初の半分のアイテムの合計幅を計算
-    let totalWidth = 0;
-    const halfLength = items.length / 2;
-    for (let i = 0; i < halfLength; i++) {
-        totalWidth += items[i].offsetWidth + ITEM_GAP;
-    }
+    const item = tickerData[currentIndex];
+    elements.tickerContent.innerHTML = createTickerItemHTML(item);
+    elements.tickerContent.style.opacity = '1';
+}
 
-    // アニメーション時間を計算（幅 / 速度）
-    const duration = totalWidth / SCROLL_SPEED;
+// 次のアイテムに切り替え
+function showNextItem() {
+    if (!elements.tickerContent || tickerData.length === 0) return;
 
-    // CSSアニメーションを適用
-    elements.tickerContent.style.animation = `scroll ${duration}s linear infinite`;
+    // フェードアウト
+    elements.tickerContent.style.transition = `opacity ${FADE_DURATION}ms ease-in-out`;
+    elements.tickerContent.style.opacity = '0';
+
+    setTimeout(() => {
+        // 次のアイテムに切り替え
+        currentIndex = (currentIndex + 1) % tickerData.length;
+        const item = tickerData[currentIndex];
+
+        // HTML更新
+        elements.tickerContent.innerHTML = createTickerItemHTML(item);
+
+        // フェードイン
+        elements.tickerContent.style.opacity = '1';
+    }, FADE_DURATION);
 }
 
 // ティッカー初期化
@@ -256,8 +270,8 @@ async function initTicker() {
             const debugInfo = document.getElementById('debugInfo');
             if (debugInfo) debugInfo.style.display = 'none';
 
-            // 横スクロールアニメーション開始
-            startScrollAnimation();
+            // フェードイン・アウトアニメーション開始
+            startFadeAnimation();
             isTickerEnabled = true;
         } else {
             console.log('表示するニュースがありません');
@@ -282,6 +296,12 @@ function handleTickerError() {
 
 // クリーンアップ処理（メモリリーク防止）
 function cleanup() {
+    // インターバルを停止
+    if (tickerInterval) {
+        clearInterval(tickerInterval);
+        tickerInterval = null;
+    }
+
     // アニメーションを停止
     if (elements.tickerContent) {
         elements.tickerContent.style.animation = 'none';
@@ -295,6 +315,7 @@ function cleanup() {
 
     tickerData = [];
     isTickerEnabled = false;
+    currentIndex = 0;
 }
 
 // ページアンロード時のクリーンアップ
