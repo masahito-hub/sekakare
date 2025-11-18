@@ -727,6 +727,16 @@ function displayHeatmap() {
         };
     });
 
+    // カスタム地点をヒートマップに追加（weight=2で統一）
+    const customPoints = getUserCustomPoints();
+    const customPointData = customPoints.map(point => ({
+        location: new google.maps.LatLng(point.lat, point.lng),
+        weight: 2  // カスタム地点は常にweight=2
+    }));
+
+    // マージ
+    const allHeatmapData = [...heatmapDataArray, ...customPointData];
+
     // 🔧 Critical Fix 1: Visualization Library存在チェック
     if (!google.maps.visualization || !google.maps.visualization.HeatmapLayer) {
         console.error('Google Maps Visualization Library not loaded. Check if &libraries=visualization is included in the Maps API script.');
@@ -747,7 +757,7 @@ function displayHeatmap() {
         ];
 
         window.heatmapLayer = new google.maps.visualization.HeatmapLayer({
-            data: heatmapDataArray,
+            data: allHeatmapData,
             map: map,
             dissipating: true,  // ピクセル半径一定
             opacity: 0.85,      // Phase 2: 0.7 → 0.85（塗り感を向上）
@@ -779,7 +789,7 @@ function displayHeatmap() {
         }
     } else {
         // データ更新のみ
-        window.heatmapLayer.setData(heatmapDataArray);
+        window.heatmapLayer.setData(allHeatmapData);
     }
 
     // 初回の半径設定
@@ -787,7 +797,7 @@ function displayHeatmap() {
     window.heatmapLayer.set('radius', radius);
 
     console.timeEnd('heatmap-render');
-    console.log(`HeatmapLayer: ${heatmapDataArray.length} 箇所を表示`);
+    console.log(`HeatmapLayer: ${allHeatmapData.length} 箇所を表示 (Places: ${heatmapDataArray.length}, Custom: ${customPointData.length})`);
 }
 
 // ログを表示
@@ -795,16 +805,19 @@ function displayLogs() {
     const logList = document.getElementById('logList');
     const logCount = document.getElementById('logCount');
 
-    if (!Array.isArray(curryLogs) || curryLogs.length === 0) {
+    // カレーログとカスタム地点をマージ（共有関数使用）
+    const mergedLogs = getMergedLogs(curryLogs);
+
+    if (!Array.isArray(mergedLogs) || mergedLogs.length === 0) {
         logList.innerHTML = '<div class="loading">まだ記録がありません。地図上のカレー店をタップして記録を始めましょう！</div>';
         logCount.textContent = '0';
         return;
     }
 
-    logCount.textContent = Array.isArray(curryLogs) ? curryLogs.length : 0;
+    logCount.textContent = mergedLogs.length;
 
     // 最新の記録を上に表示
-    const sortedLogs = [...curryLogs].reverse();
+    const sortedLogs = [...mergedLogs].reverse();
 
     // 最大3件まで表示（それ以上は「もっと見る」リンク）
     const maxDisplay = 3;
@@ -818,11 +831,11 @@ function displayLogs() {
     `).join('');
 
     // 3件以上ある場合は「もっと見る」リンクを追加
-    if (curryLogs.length > maxDisplay) {
+    if (mergedLogs.length > maxDisplay) {
         html += `
             <div style="text-align: center; margin-top: 10px;">
                 <a href="/logs.html" style="color: #ff6b00; text-decoration: none; font-weight: bold;">
-                    もっと見る (${curryLogs.length - maxDisplay}件) →
+                    もっと見る (${mergedLogs.length - maxDisplay}件) →
                 </a>
             </div>
         `;
@@ -862,12 +875,15 @@ function initAchievements() {
 
 // 実績をチェックする関数
 function checkAchievements() {
-    if (!Array.isArray(curryLogs)) {
-        console.warn('curryLogs is not an array');
+    // カレーログとカスタム地点をマージして実績計算
+    const mergedLogs = getMergedLogs(curryLogs);
+
+    if (!Array.isArray(mergedLogs)) {
+        console.warn('mergedLogs is not an array');
         return;
     }
-    const visitCount = curryLogs.length;
-    const uniqueShops = new Set(curryLogs.map(log => log.id)).size;
+    const visitCount = mergedLogs.length;
+    const uniqueShops = new Set(mergedLogs.map(log => log.id || log.placeId || log.place_id)).size;
     const newBadges = [];
 
     // 新しく達成した実績をチェック
@@ -923,12 +939,15 @@ function showAchievementPopup(badges) {
 
 // 実績表示を更新
 function updateAchievementDisplay() {
-    if (!Array.isArray(curryLogs)) {
-        console.warn('curryLogs is not an array');
+    // カレーログとカスタム地点をマージして表示
+    const mergedLogs = getMergedLogs(curryLogs);
+
+    if (!Array.isArray(mergedLogs)) {
+        console.warn('mergedLogs is not an array');
         return;
     }
-    const visitCount = curryLogs.length;
-    const uniqueShops = new Set(curryLogs.map(log => log.id)).size;
+    const visitCount = mergedLogs.length;
+    const uniqueShops = new Set(mergedLogs.map(log => log.id || log.placeId || log.place_id)).size;
     const achievementCount = Object.keys(achievements).length;
 
     // ログセクションに統計を追加
@@ -1032,3 +1051,379 @@ document.addEventListener('DOMContentLoaded', function() {
         footerYear.textContent = new Date().getFullYear();
     }
 });
+
+// ============================================================================
+// カスタム地点機能の統合
+// ============================================================================
+
+let customPointPhotos = []; // 現在選択中の写真
+let customPointLatLng = null; // 選択された地点の座標
+
+/**
+ * 地図クリックイベントでカスタム地点追加モーダルを表示
+ */
+function setupCustomPointMapClick() {
+    if (!map) return;
+
+    map.addListener('click', (event) => {
+        if (event.latLng) {
+            const lat = event.latLng.lat();
+            const lng = event.latLng.lng();
+
+            // 重複チェック
+            const duplicateCheck = checkDuplicateNearby(lat, lng);
+            if (duplicateCheck.isDuplicate) {
+                const existingName = duplicateCheck.existingPoint
+                    ? duplicateCheck.existingPoint.name
+                    : '既存の訪問記録';
+
+                if (!confirm(`⚠️ 近くに既存の記録があります\n\n「${existingName}」\n\nそれでも追加しますか？`)) {
+                    return;
+                }
+            }
+
+            // モーダルを表示
+            showCustomPointModal(lat, lng);
+        }
+    });
+}
+
+/**
+ * カスタム地点追加モーダルを表示
+ * @param {number} lat - 緯度
+ * @param {number} lng - 経度
+ */
+function showCustomPointModal(lat, lng) {
+    customPointLatLng = { lat, lng };
+    customPointPhotos = [];
+
+    // フォームをリセット
+    document.getElementById('customPointName').value = '';
+    document.getElementById('customPointType').value = '外食';
+    document.getElementById('customPointDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('customPointMenu').value = '';
+    document.getElementById('customPointMemo').value = '';
+    document.getElementById('customPointPhotoPreview').innerHTML = '';
+
+    // モーダルを表示
+    const modal = document.getElementById('customPointModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+/**
+ * カスタム地点モーダルを閉じる
+ */
+function closeCustomPointModal() {
+    const modal = document.getElementById('customPointModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+    customPointLatLng = null;
+    customPointPhotos = [];
+}
+
+/**
+ * カスタム地点を保存
+ */
+async function saveCustomPointFromModal() {
+    if (!customPointLatLng) {
+        alert('位置情報が取得できませんでした');
+        return;
+    }
+
+    // XSS対策: フォーム入力値をエスケープして取得
+    const nameEl = document.getElementById('customPointName');
+    const typeEl = document.getElementById('customPointType');
+    const dateEl = document.getElementById('customPointDate');
+    const menuEl = document.getElementById('customPointMenu');
+    const memoEl = document.getElementById('customPointMemo');
+
+    if (!nameEl || !typeEl || !dateEl || !menuEl || !memoEl) {
+        alert('フォーム要素の読み込みに失敗しました');
+        return;
+    }
+
+    const name = nameEl.value.trim();
+    const type = typeEl.value;
+    const date = dateEl.value;
+    const menu = menuEl.value.trim();
+    const memo = memoEl.value.trim();
+
+    // バリデーション
+    if (!name) {
+        alert('店舗名・地点名を入力してください');
+        nameEl.focus();
+        return;
+    }
+
+    if (name.length > CUSTOM_POINTS_CONFIG.MAX_NAME_LENGTH) {
+        alert(`店舗名は${CUSTOM_POINTS_CONFIG.MAX_NAME_LENGTH}文字以内で入力してください`);
+        nameEl.focus();
+        return;
+    }
+
+    if (!date) {
+        alert('訪問日を入力してください');
+        dateEl.focus();
+        return;
+    }
+
+    if (menu.length > CUSTOM_POINTS_CONFIG.MAX_MENU_LENGTH) {
+        alert(`メニューは${CUSTOM_POINTS_CONFIG.MAX_MENU_LENGTH}文字以内で入力してください`);
+        menuEl.focus();
+        return;
+    }
+
+    if (memo.length > CUSTOM_POINTS_CONFIG.MAX_MEMO_LENGTH) {
+        alert(`メモは${CUSTOM_POINTS_CONFIG.MAX_MEMO_LENGTH}文字以内で入力してください`);
+        memoEl.focus();
+        return;
+    }
+
+    // カスタム地点を保存
+    const point = {
+        lat: customPointLatLng.lat,
+        lng: customPointLatLng.lng,
+        name: name,
+        type: type,
+        date: date,
+        menu: menu,
+        memo: memo,
+        photos: customPointPhotos
+    };
+
+    const saved = saveCustomPoint(point);
+    if (saved) {
+        alert('🍛 カレー体験を追加しました！');
+        closeCustomPointModal();
+
+        // ヒートマップを更新
+        displayHeatmap();
+
+        // マーカーを追加
+        displayCustomPointMarkers();
+
+        // ログを更新
+        displayLogs();
+
+        // 実績チェック
+        checkAchievements();
+    } else {
+        alert('保存に失敗しました。入力内容を確認してください。');
+    }
+}
+
+/**
+ * カスタム地点のマーカーを表示
+ */
+function displayCustomPointMarkers() {
+    const customPoints = getUserCustomPoints();
+
+    customPoints.forEach(point => {
+        try {
+            const markerContent = document.createElement('div');
+            markerContent.className = 'custom-marker';
+
+            const icon = '✅'; // 緑チェックアイコン
+            const size = '28px';
+
+            markerContent.innerHTML = `
+                <div style="font-size: ${size}; line-height: 1;">${icon}</div>
+            `;
+
+            const marker = new google.maps.marker.AdvancedMarkerElement({
+                map: map,
+                position: { lat: point.lat, lng: point.lng },
+                title: `${point.name} (${point.type})`,
+                content: markerContent
+            });
+
+            marker.addListener('click', () => {
+                showCustomPointPopup(point);
+            });
+
+            markers.push(marker);
+        } catch (error) {
+            console.error('[CustomPoint] マーカー作成エラー:', error);
+        }
+    });
+}
+
+/**
+ * カスタム地点のポップアップを表示（XSS対策済み）
+ * @param {Object} point - カスタム地点データ
+ */
+function showCustomPointPopup(point) {
+    // XSS対策: すべてのユーザー入力をエスケープ
+    const title = document.getElementById('popupTitle');
+    const address = document.getElementById('popupAddress');
+    const btnAte = document.getElementById('btnAte');
+
+    if (title) {
+        title.textContent = `${escapeHtml(point.name)} ✅ (${escapeHtml(point.type)})`;
+    }
+
+    if (address) {
+        const menuText = point.menu ? ` | ${escapeHtml(point.menu)}` : '';
+        address.textContent = `訪問日: ${point.date || '不明'}${menuText}`;
+    }
+
+    if (btnAte) {
+        btnAte.textContent = '✅ 登録済み';
+        btnAte.disabled = true;
+        btnAte.style.opacity = '0.5';
+    }
+
+    // 詳細ボタンでアラート表示（XSS対策済み）
+    const btnDetails = document.getElementById('btnDetails');
+    if (btnDetails) {
+        btnDetails.onclick = () => {
+            alert(
+                `店舗名: ${escapeHtml(point.name)}\n` +
+                `種類: ${escapeHtml(point.type)}\n` +
+                `訪問日: ${point.date || '不明'}\n` +
+                `メニュー: ${escapeHtml(point.menu || 'なし')}\n` +
+                `メモ: ${escapeHtml(point.memo || 'なし')}`
+            );
+        };
+    }
+
+    document.getElementById('popupOverlay').style.display = 'block';
+}
+
+/**
+ * 写真選択ハンドラー
+ */
+async function handleCustomPointPhotoSelection(e) {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const MAX_PHOTOS = 3;
+    if (customPointPhotos.length + files.length > MAX_PHOTOS) {
+        alert(`写真は最大${MAX_PHOTOS}枚までです`);
+        return;
+    }
+
+    for (const file of files) {
+        try {
+            const compressedData = await compressImage(file, {
+                maxWidth: 800,
+                maxHeight: 800,
+                quality: 0.7
+            });
+
+            const photo = {
+                id: generateUniqueId(),
+                data: compressedData,
+                createdAt: new Date().toISOString()
+            };
+
+            customPointPhotos.push(photo);
+        } catch (error) {
+            console.error('[CustomPoint] 写真圧縮エラー:', error);
+            alert('写真の処理に失敗しました');
+        }
+    }
+
+    updateCustomPointPhotoPreview();
+    e.target.value = '';
+}
+
+/**
+ * 写真プレビューを更新
+ */
+function updateCustomPointPhotoPreview() {
+    const preview = document.getElementById('customPointPhotoPreview');
+    if (!preview) return;
+
+    let html = '';
+    customPointPhotos.forEach((photo, index) => {
+        html += `
+            <div class="photo-preview-item">
+                <img src="${photo.data}" alt="写真 ${index + 1}" loading="lazy">
+                <button type="button" class="photo-delete-btn" data-photo-id="${escapeHtml(photo.id)}" aria-label="削除">×</button>
+            </div>
+        `;
+    });
+
+    preview.innerHTML = html;
+
+    // 削除ボタンのイベントリスナー
+    preview.querySelectorAll('.photo-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const photoId = btn.dataset.photoId;
+            customPointPhotos = customPointPhotos.filter(p => p.id !== photoId);
+            updateCustomPointPhotoPreview();
+        });
+    });
+}
+
+/**
+ * カスタム地点機能のイベントリスナーを設定
+ */
+function setupCustomPointListeners() {
+    // モーダル閉じるボタン
+    const closeBtn = document.getElementById('customPointModalClose');
+    const cancelBtn = document.getElementById('customPointCancelBtn');
+    if (closeBtn) closeBtn.addEventListener('click', closeCustomPointModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeCustomPointModal);
+
+    // モーダル外クリックで閉じる
+    const modal = document.getElementById('customPointModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeCustomPointModal();
+            }
+        });
+    }
+
+    // ESCキーで閉じる
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal && modal.style.display === 'flex') {
+            closeCustomPointModal();
+        }
+    });
+
+    // 保存ボタン
+    const saveBtn = document.getElementById('customPointSaveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveCustomPointFromModal);
+    }
+
+    // 写真追加ボタン
+    const addPhotoBtn = document.getElementById('customPointAddPhotoBtn');
+    const photoInput = document.getElementById('customPointPhotoInput');
+    if (addPhotoBtn && photoInput) {
+        addPhotoBtn.addEventListener('click', () => {
+            if (customPointPhotos.length >= 3) {
+                alert('写真は最大3枚までです');
+                return;
+            }
+            photoInput.click();
+        });
+        photoInput.addEventListener('change', handleCustomPointPhotoSelection);
+    }
+}
+
+// カスタム地点機能を初期化（地図作成後に呼び出す）
+function initCustomPoints() {
+    setupCustomPointListeners();
+    setupCustomPointMapClick();
+    displayCustomPointMarkers();
+}
+
+// createMap関数内でカスタム地点を初期化するよう、既存のcreateMap関数を拡張
+const originalCreateMap = window.createMap || createMap;
+window.createMap = function(center, zoom) {
+    originalCreateMap.call(this, center, zoom);
+    // カスタム地点機能を初期化
+    if (typeof initCustomPoints === 'function') {
+        setTimeout(() => initCustomPoints(), 100);
+    }
+};

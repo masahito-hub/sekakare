@@ -164,8 +164,11 @@ function displayLogs() {
         return;
     }
 
+    // カレーログとカスタム地点をマージ（共有関数使用）
+    const mergedVisits = getMergedLogs(visits);
+
     // ログが0件の場合は Empty State を表示
-    if (!visits || visits.length === 0) {
+    if (!mergedVisits || mergedVisits.length === 0) {
         logsContainer.innerHTML = `
             <div class="empty-state">
                 <div class="empty-icon">🍛</div>
@@ -186,7 +189,7 @@ function displayLogs() {
     }
 
     // ソート実行
-    const sortedVisits = sortLogs(visits, sortType);
+    const sortedVisits = sortLogs(mergedVisits, sortType);
 
     // ドロップダウンの選択状態を復元
     const sortSelect = document.getElementById('sortSelect');
@@ -380,12 +383,15 @@ function updateHeader() {
     const visitCount = document.getElementById('visitCount');
     const dateRange = document.getElementById('dateRange');
 
+    // カレーログとカスタム地点をマージ
+    const mergedVisits = getMergedLogs(visits);
+
     if (visitCount) {
-        visitCount.textContent = visits.length;
+        visitCount.textContent = mergedVisits.length;
     }
 
-    if (dateRange && visits.length > 0) {
-        const sortedDates = [...visits]
+    if (dateRange && mergedVisits.length > 0) {
+        const sortedDates = [...mergedVisits]
             .map(v => v.visitedAt || v.createdAt || v.date || '')
             .filter(d => d)
             .sort();
