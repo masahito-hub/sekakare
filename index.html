@@ -149,6 +149,65 @@
         </div>
     </div>
 
+    <!-- カスタム地点追加モーダル -->
+    <div class="modal-overlay" id="customPointModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>カレー体験を追加</h3>
+                <button class="modal-close" id="customPointModalClose" aria-label="閉じる">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="customPointForm">
+                    <div class="form-group">
+                        <label for="customPointName">店舗名・地点名 <span class="required">*</span></label>
+                        <input type="text" id="customPointName" maxlength="100" required placeholder="例: 自宅カレー">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customPointType">種類 <span class="required">*</span></label>
+                        <select id="customPointType" required>
+                            <option value="外食">外食</option>
+                            <option value="デリバリー">デリバリー</option>
+                            <option value="コンビニ・スーパー">コンビニ・スーパー</option>
+                            <option value="レトルト">レトルト</option>
+                            <option value="自炊">自炊</option>
+                            <option value="その他">その他</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customPointDate">訪問日 <span class="required">*</span></label>
+                        <input type="date" id="customPointDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customPointMenu">食べたメニュー</label>
+                        <input type="text" id="customPointMenu" maxlength="100" placeholder="例: チキンカレー">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customPointMemo">メモ</label>
+                        <textarea id="customPointMemo" maxlength="500" placeholder="感想や詳細を記録..." rows="4"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>写真（最大3枚）</label>
+                        <div id="customPointPhotoPreview" class="photo-preview-container"></div>
+                        <button type="button" id="customPointAddPhotoBtn" class="btn-add-photo">
+                            <span class="add-photo-icon">📷</span>
+                            <span class="add-photo-text">写真を追加</span>
+                        </button>
+                        <input type="file" id="customPointPhotoInput" accept="image/*" multiple style="display: none;">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="customPointCancelBtn">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="customPointSaveBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
     <footer class="footer">
         <div class="footer-content">
             <p>&copy; <span id="footer-year">2024</span> セカカレ. All rights reserved.</p>
@@ -161,6 +220,9 @@
 
     <!-- ハンバーガーメニューJS -->
     <script src="assets/js/menu.js"></script>
+
+    <!-- カスタム地点管理JS -->
+    <script src="assets/js/custom-points.js"></script>
 
     <!-- メインアプリケーションJS -->
     <script src="assets/js/app.js"></script>
