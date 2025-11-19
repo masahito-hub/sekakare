@@ -119,6 +119,13 @@ function createMap(center, zoom) {
         center: center,
         gestureHandling: 'greedy',  // 1本指でのパン操作を可能にする
         mapId: 'sekakare_map',  // Advanced Markers用のMap IDを追加
+
+        // デフォルトUIコントロールを非表示
+        zoomControl: false,           // ズーム±ボタン非表示
+        streetViewControl: false,     // ストリートビュー（黄色い人形）非表示
+        mapTypeControl: false,        // 地図/航空写真切替非表示
+        fullscreenControl: false,     // フルスクリーンボタン非表示
+
         styles: [
             {
                 "featureType": "poi",
@@ -1364,6 +1371,86 @@ function updateCustomPointPhotoPreview() {
 }
 
 /**
+ * FABボタンで現在地からカレーを追加
+ */
+function setupFABButton() {
+    const fabButton = document.getElementById('fabAddCurry');
+    if (!fabButton) return;
+
+    fabButton.addEventListener('click', () => {
+        console.log('FAB: 現在地からカレーを追加');
+
+        // 現在地を取得
+        if (navigator.geolocation) {
+            fabButton.disabled = true;
+            fabButton.style.opacity = '0.6';
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+
+                    console.log('現在地取得成功:', lat, lng);
+
+                    // 地図を現在地に移動
+                    map.setCenter({ lat, lng });
+                    map.setZoom(16);
+
+                    // 重複チェック
+                    const duplicateCheck = checkDuplicateNearby(lat, lng);
+                    if (duplicateCheck.isDuplicate) {
+                        const existingName = duplicateCheck.existingPoint
+                            ? duplicateCheck.existingPoint.name
+                            : '既存の訪問記録';
+
+                        if (!confirm(`⚠️ 近くに既存の記録があります\n\n「${existingName}」\n\nそれでも追加しますか？`)) {
+                            fabButton.disabled = false;
+                            fabButton.style.opacity = '1';
+                            return;
+                        }
+                    }
+
+                    // モーダル表示
+                    showCustomPointModal(lat, lng);
+
+                    fabButton.disabled = false;
+                    fabButton.style.opacity = '1';
+                },
+                (error) => {
+                    console.error('現在地取得エラー:', error);
+
+                    // エラー時は地図中心でモーダル表示
+                    const center = map.getCenter();
+                    if (center) {
+                        alert('現在地の取得に失敗しました。\n地図の中心位置でカレーを追加します。');
+                        showCustomPointModal(center.lat(), center.lng());
+                    } else {
+                        alert('位置情報を取得できませんでした。');
+                    }
+
+                    fabButton.disabled = false;
+                    fabButton.style.opacity = '1';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        } else {
+            // Geolocation非対応時は地図中心でモーダル表示
+            const center = map.getCenter();
+            if (center) {
+                alert('お使いのブラウザは位置情報に対応していません。\n地図の中心位置でカレーを追加します。');
+                showCustomPointModal(center.lat(), center.lng());
+            } else {
+                alert('位置情報を取得できませんでした。');
+            }
+        }
+    });
+}
+
+/**
  * カスタム地点機能のイベントリスナーを設定
  */
 function setupCustomPointListeners() {
@@ -1416,6 +1503,7 @@ function initCustomPoints() {
     setupCustomPointListeners();
     setupCustomPointMapClick();
     displayCustomPointMarkers();
+    setupFABButton();  // FABボタンを初期化
 }
 
 // createMap関数内でカスタム地点を初期化するよう、既存のcreateMap関数を拡張
