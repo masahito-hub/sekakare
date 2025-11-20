@@ -838,3 +838,67 @@ body.menu-open {
         width: 100%;
     }
 }
+
+/* ============================================================================
+   FABボタン（カレー追加）
+   ============================================================================ */
+
+.fab-add-curry {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 120px;
+    height: 56px;
+    background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%);
+    border: none;
+    border-radius: 28px;
+    box-shadow: 0 4px 12px rgba(255, 107, 0, 0.4);
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.fab-add-curry:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(255, 107, 0, 0.5);
+}
+
+.fab-add-curry:active {
+    transform: scale(0.95);
+}
+
+.fab-icon {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.fab-text {
+    font-size: 14px;
+}
+
+/* モバイル対応 */
+@media (max-width: 600px) {
+    .fab-add-curry {
+        bottom: 20px;
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        border-radius: 30px;
+    }
+
+    /* モバイルではアイコンのみ表示 */
+    .fab-text {
+        display: none;
+    }
+
+    .fab-icon {
+        font-size: 28px;
+    }
+}
