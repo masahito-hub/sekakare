@@ -119,6 +119,13 @@ function createMap(center, zoom) {
         center: center,
         gestureHandling: 'greedy',  // 1本指でのパン操作を可能にする
         mapId: 'sekakare_map',  // Advanced Markers用のMap IDを追加
+
+        // デフォルトUIコントロールを非表示
+        zoomControl: false,           // ズーム±ボタン非表示
+        streetViewControl: false,     // ストリートビュー（黄色い人形）非表示
+        mapTypeControl: false,        // 地図/航空写真切替非表示
+        fullscreenControl: false,     // フルスクリーンボタン非表示
+
         styles: [
             {
                 "featureType": "poi",
@@ -1074,7 +1081,7 @@ function setupCustomPointMapClick() {
             const duplicateCheck = checkDuplicateNearby(lat, lng);
             if (duplicateCheck.isDuplicate) {
                 const existingName = duplicateCheck.existingPoint
-                    ? duplicateCheck.existingPoint.name
+                    ? escapeHtml(duplicateCheck.existingPoint.name)
                     : '既存の訪問記録';
 
                 if (!confirm(`⚠️ 近くに既存の記録があります\n\n「${existingName}」\n\nそれでも追加しますか？`)) {
@@ -1412,10 +1419,95 @@ function setupCustomPointListeners() {
 }
 
 // カスタム地点機能を初期化（地図作成後に呼び出す）
+/**
+ * FABボタンの状態をリセット
+ */
+function resetFABButton() {
+    const fabButton = document.getElementById('fabAddCurry');
+    if (fabButton) {
+        fabButton.disabled = false;
+        fabButton.style.opacity = '1';
+    }
+}
+
+/**
+ * FABボタンで現在地からカレーを追加
+ */
+function setupFABButton() {
+    const fabButton = document.getElementById('fabAddCurry');
+    if (!fabButton) return;
+
+    fabButton.addEventListener('click', () => {
+        // 現在地を取得
+        if (navigator.geolocation) {
+            fabButton.disabled = true;
+            fabButton.style.opacity = '0.6';
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+
+                    // 地図を現在地に移動
+                    map.setCenter({ lat, lng });
+                    map.setZoom(16);
+
+                    // 重複チェック
+                    const duplicateCheck = checkDuplicateNearby(lat, lng);
+                    if (duplicateCheck.isDuplicate) {
+                        const existingName = duplicateCheck.existingPoint
+                            ? escapeHtml(duplicateCheck.existingPoint.name)
+                            : '既存の訪問記録';
+
+                        if (!confirm(`⚠️ 近くに既存の記録があります\n\n「${existingName}」\n\nそれでも追加しますか？`)) {
+                            resetFABButton();
+                            return;
+                        }
+                    }
+
+                    // モーダル表示
+                    showCustomPointModal(lat, lng);
+
+                    resetFABButton();
+                },
+                (error) => {
+                    console.error('現在地取得エラー:', error);
+
+                    // エラー時は地図中心でモーダル表示
+                    const center = map.getCenter();
+                    if (center) {
+                        alert('現在地の取得に失敗しました。\n地図の中心位置でカレーを追加します。');
+                        showCustomPointModal(center.lat(), center.lng());
+                    } else {
+                        alert('位置情報を取得できませんでした。');
+                    }
+
+                    resetFABButton();
+                },
+                {
+                    enableHighAccuracy: false,  // WiFi/セルラーで十分
+                    timeout: 15000,             // 15秒に延長
+                    maximumAge: 30000           // 30秒以内のキャッシュ許容
+                }
+            );
+        } else {
+            // Geolocation非対応時は地図中心でモーダル表示
+            const center = map.getCenter();
+            if (center) {
+                alert('お使いのブラウザは位置情報に対応していません。\n地図の中心位置でカレーを追加します。');
+                showCustomPointModal(center.lat(), center.lng());
+            } else {
+                alert('位置情報を取得できませんでした。');
+            }
+        }
+    });
+}
+
 function initCustomPoints() {
     setupCustomPointListeners();
     setupCustomPointMapClick();
     displayCustomPointMarkers();
+    setupFABButton();  // FABボタンを初期化
 }
 
 // createMap関数内でカスタム地点を初期化するよう、既存のcreateMap関数を拡張
