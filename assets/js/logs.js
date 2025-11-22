@@ -269,24 +269,39 @@ function displayLogsByRegion(logs) {
             const placeId = visit.placeId || visit.id || visit.place_id || '';
             const name = visit.name || '店舗名不明';
             const address = visit.address || visit.vicinity || '住所不明';
+            const isCustomPoint = visit.isCustomPoint === true;
 
             // 市区まで抽出（簡易版）
             const cityMatch = address.match(/(.+?[都道府県])(.+?[市区町村])/);
             const displayAddress = cityMatch ? cityMatch[1] + cityMatch[2] : address;
+
+            // カスタム地点の場合は✅アイコンを表示
+            const customPointIcon = isCustomPoint ? ' ✅' : '';
+            const customPointLabel = isCustomPoint ? `<span class="custom-point-label">${escapeHtml(visit.type || '種類不明')}</span>` : '';
+
+            // カスタム地点の場合は編集・削除ボタンを表示
+            const actionButtons = isCustomPoint ? `
+                <div class="log-item-actions">
+                    <button class="btn-edit-custom" data-point-id="${escapeHtml(placeId)}" aria-label="編集">編集</button>
+                    <button class="btn-delete-custom" data-point-id="${escapeHtml(placeId)}" aria-label="削除">削除</button>
+                </div>
+            ` : '';
 
             html += `
                 <div class="log-card">
                     <button class="edit-icon" data-place-id="${escapeHtml(placeId)}" aria-label="編集">✏️</button>
                     <h3>
                         <a href="/?placeId=${encodeURIComponent(placeId)}" class="shop-link">
-                            ${escapeHtml(name)}
+                            ${escapeHtml(name)}${customPointIcon}
                         </a>
                     </h3>
+                    ${customPointLabel}
                     <p class="log-date">訪問日: ${escapeHtml(visitDate)}</p>
                     <p class="log-location">📍 ${escapeHtml(displayAddress)}</p>
                     ${visit.menu ? `<p class="log-menu">🍛 ${escapeHtml(visit.menu)}</p>` : ''}
                     ${visit.memo ? `<p class="log-memo">📝 ${escapeHtml(visit.memo)}</p>` : ''}
                     ${generatePhotoThumbnails(visit.photos, placeId)}
+                    ${actionButtons}
                 </div>
             `;
         });
@@ -295,6 +310,7 @@ function displayLogsByRegion(logs) {
     });
 
     logsContainer.innerHTML = html;
+    setupCustomPointActions();
 }
 
 /**
@@ -319,24 +335,39 @@ function displayLogsByDate(logs) {
             const placeId = visit.placeId || visit.id || visit.place_id || '';
             const name = visit.name || '店舗名不明';
             const address = visit.address || visit.vicinity || '住所不明';
+            const isCustomPoint = visit.isCustomPoint === true;
 
             // 市区まで抽出（簡易版）
             const cityMatch = address.match(/(.+?[都道府県])(.+?[市区町村])/);
             const displayAddress = cityMatch ? cityMatch[1] + cityMatch[2] : address;
+
+            // カスタム地点の場合は✅アイコンを表示
+            const customPointIcon = isCustomPoint ? ' ✅' : '';
+            const customPointLabel = isCustomPoint ? `<span class="custom-point-label">${escapeHtml(visit.type || '種類不明')}</span>` : '';
+
+            // カスタム地点の場合は編集・削除ボタンを表示
+            const actionButtons = isCustomPoint ? `
+                <div class="log-item-actions">
+                    <button class="btn-edit-custom" data-point-id="${escapeHtml(placeId)}" aria-label="編集">編集</button>
+                    <button class="btn-delete-custom" data-point-id="${escapeHtml(placeId)}" aria-label="削除">削除</button>
+                </div>
+            ` : '';
 
             html += `
                 <div class="log-card">
                     <button class="edit-icon" data-place-id="${escapeHtml(placeId)}" aria-label="編集">✏️</button>
                     <h3>
                         <a href="/?placeId=${encodeURIComponent(placeId)}" class="shop-link">
-                            ${escapeHtml(name)}
+                            ${escapeHtml(name)}${customPointIcon}
                         </a>
                     </h3>
+                    ${customPointLabel}
                     <p class="log-date">訪問日: ${escapeHtml(visitDate)}</p>
                     <p class="log-location">📍 ${escapeHtml(displayAddress)}</p>
                     ${visit.menu ? `<p class="log-menu">🍛 ${escapeHtml(visit.menu)}</p>` : ''}
                     ${visit.memo ? `<p class="log-memo">📝 ${escapeHtml(visit.memo)}</p>` : ''}
                     ${generatePhotoThumbnails(visit.photos, placeId)}
+                    ${actionButtons}
                 </div>
             `;
         });
@@ -345,6 +376,7 @@ function displayLogsByDate(logs) {
     }
 
     logsContainer.innerHTML = html;
+    setupCustomPointActions();
 }
 
 // 月ごとにグループ化する関数
@@ -886,7 +918,31 @@ function saveEditedLog() {
         return;
     }
 
-    // データ更新
+    // カスタム地点かどうかで処理を分岐
+    if (currentEditingLog.isCustomPoint) {
+        // カスタム地点の更新
+        const updates = {
+            date: visitedAt || currentEditingLog.date,
+            menu: menu.trim(),
+            memo: memo.trim(),
+            photos: currentPhotos
+        };
+
+        const updated = updateCustomPoint(currentEditingLog.id, updates);
+        if (updated) {
+            console.log('[Save] カスタム地点を更新しました', updated);
+            closeEditModal();
+            loadVisits();
+            displayLogs();
+            updateHeader();
+            showSaveSuccessMessage();
+        } else {
+            alert('カスタム地点の更新に失敗しました。');
+        }
+        return;
+    }
+
+    // 通常のログの更新
     const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.curryLogs)
         ? Config.storageKeys.curryLogs
         : 'curryLogs';
@@ -929,7 +985,7 @@ function saveEditedLog() {
 
     } catch (error) {
         console.error('[Save] 保存エラー:', error);
-        
+
         // 容量エラーの場合、詳細メッセージ
         if (error.name === 'QuotaExceededError') {
             const storage = checkStorageCapacity();
@@ -1000,4 +1056,110 @@ function showSaveSuccessMessage() {
     setTimeout(() => {
         toast.remove();
     }, 2000);
+}
+
+/**
+ * カスタム地点の編集・削除ボタンのイベントリスナー設定
+ */
+function setupCustomPointActions() {
+    // 編集ボタン
+    document.querySelectorAll('.btn-edit-custom').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const pointId = btn.dataset.pointId;
+            if (pointId) {
+                editCustomPoint(pointId);
+            }
+        });
+    });
+
+    // 削除ボタン
+    document.querySelectorAll('.btn-delete-custom').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const pointId = btn.dataset.pointId;
+            if (pointId) {
+                deleteCustomPointConfirm(pointId);
+            }
+        });
+    });
+}
+
+/**
+ * カスタム地点を編集
+ * @param {string} pointId - カスタム地点ID
+ */
+function editCustomPoint(pointId) {
+    const customPoints = getUserCustomPoints();
+    const point = customPoints.find(p => p.id === pointId);
+
+    if (!point) {
+        alert('カスタム地点が見つかりませんでした');
+        return;
+    }
+
+    // モーダルにデータをセット（カスタム地点用のフィールドを設定）
+    currentEditingLog = {
+        ...point,
+        placeId: point.id,
+        isCustomPoint: true
+    };
+
+    // 写真データを読み込み
+    currentPhotos = point.photos ? [...point.photos] : [];
+
+    // モーダルにデータを設定
+    const modalStoreName = document.getElementById('modalStoreName');
+    const modalVisitedAt = document.getElementById('modalVisitedAt');
+    const modalMenu = document.getElementById('modalMenu');
+    const modalMemo = document.getElementById('modalMemo');
+
+    if (modalStoreName) modalStoreName.textContent = point.name || '店舗名不明';
+    if (modalVisitedAt) modalVisitedAt.value = point.date || '';
+    if (modalMenu) modalMenu.value = point.menu || '';
+    if (modalMemo) modalMemo.value = point.memo || '';
+
+    // 写真プレビュー更新
+    updatePhotoPreview();
+
+    // モーダルを表示
+    editModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // フォーカス可能要素を取得
+    updateFocusableElements();
+
+    // 最初の入力要素にフォーカス
+    if (modalVisitedAt) {
+        modalVisitedAt.focus();
+    }
+}
+
+/**
+ * カスタム地点を削除（確認ダイアログ付き）
+ * @param {string} pointId - カスタム地点ID
+ */
+function deleteCustomPointConfirm(pointId) {
+    const customPoints = getUserCustomPoints();
+    const point = customPoints.find(p => p.id === pointId);
+
+    if (!point) {
+        alert('カスタム地点が見つかりませんでした');
+        return;
+    }
+
+    if (confirm(`「${point.name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
+        const success = deleteCustomPoint(pointId);
+        if (success) {
+            // ログ再表示
+            loadVisits();
+            displayLogs();
+            updateHeader();
+            showSaveSuccessMessage();
+        } else {
+            alert('削除に失敗しました');
+        }
+    }
 }

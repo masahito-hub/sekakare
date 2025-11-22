@@ -1067,32 +1067,146 @@ let customPointPhotos = []; // 現在選択中の写真
 let customPointLatLng = null; // 選択された地点の座標
 
 /**
- * 地図クリックイベントでカスタム地点追加モーダルを表示
+ * 地図長押しイベントでカスタム地点追加モーダルを表示
  */
 function setupCustomPointMapClick() {
     if (!map) return;
 
-    map.addListener('click', (event) => {
-        if (event.latLng) {
-            const lat = event.latLng.lat();
-            const lng = event.latLng.lng();
+    let longPressTimer = null;
+    let longPressTriggered = false;
+    let startX = 0;
+    let startY = 0;
+    const LONG_PRESS_DURATION = 500; // 500ms
+    const MOVE_THRESHOLD = 10; // 10px以内の移動は許容
 
-            // 重複チェック
-            const duplicateCheck = checkDuplicateNearby(lat, lng);
-            if (duplicateCheck.isDuplicate) {
-                const existingName = duplicateCheck.existingPoint
-                    ? escapeHtml(duplicateCheck.existingPoint.name)
-                    : '既存の訪問記録';
+    // デスクトップ（マウス）用の長押し検出
+    map.addListener('mousedown', (event) => {
+        if (!event.latLng) return;
 
-                if (!confirm(`⚠️ 近くに既存の記録があります\n\n「${existingName}」\n\nそれでも追加しますか？`)) {
-                    return;
-                }
+        longPressTriggered = false;
+        startX = event.domEvent.clientX;
+        startY = event.domEvent.clientY;
+
+        longPressTimer = setTimeout(() => {
+            longPressTriggered = true;
+            handleLongPress(event.latLng.lat(), event.latLng.lng());
+        }, LONG_PRESS_DURATION);
+    });
+
+    map.addListener('mousemove', (event) => {
+        if (longPressTimer) {
+            const moveX = Math.abs(event.domEvent.clientX - startX);
+            const moveY = Math.abs(event.domEvent.clientY - startY);
+
+            // 移動距離が閾値を超えたらキャンセル
+            if (moveX > MOVE_THRESHOLD || moveY > MOVE_THRESHOLD) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
             }
-
-            // モーダルを表示
-            showCustomPointModal(lat, lng);
         }
     });
+
+    map.addListener('mouseup', () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    });
+
+    // モバイル（タッチ）用の長押し検出
+    const mapDiv = document.getElementById('map');
+    if (mapDiv) {
+        mapDiv.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return; // 単一タッチのみ
+
+            longPressTriggered = false;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+
+            longPressTimer = setTimeout(() => {
+                longPressTriggered = true;
+
+                // タッチ位置から緯度経度を計算
+                const bounds = map.getBounds();
+                const ne = bounds.getNorthEast();
+                const sw = bounds.getSouthWest();
+                const projection = map.getProjection();
+
+                if (projection) {
+                    const topRight = projection.fromLatLngToPoint(ne);
+                    const bottomLeft = projection.fromLatLngToPoint(sw);
+                    const scale = Math.pow(2, map.getZoom());
+
+                    const mapDiv = document.getElementById('map');
+                    const rect = mapDiv.getBoundingClientRect();
+
+                    const x = (e.touches[0].clientX - rect.left) / rect.width;
+                    const y = (e.touches[0].clientY - rect.top) / rect.height;
+
+                    const worldPoint = new google.maps.Point(
+                        bottomLeft.x + (topRight.x - bottomLeft.x) * x,
+                        topRight.y + (bottomLeft.y - topRight.y) * y
+                    );
+
+                    const latLng = projection.fromPointToLatLng(worldPoint);
+
+                    handleLongPress(latLng.lat(), latLng.lng());
+                }
+            }, LONG_PRESS_DURATION);
+        });
+
+        mapDiv.addEventListener('touchmove', (e) => {
+            if (longPressTimer && e.touches.length === 1) {
+                const moveX = Math.abs(e.touches[0].clientX - startX);
+                const moveY = Math.abs(e.touches[0].clientY - startY);
+
+                // 移動距離が閾値を超えたらキャンセル
+                if (moveX > MOVE_THRESHOLD || moveY > MOVE_THRESHOLD) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            }
+        });
+
+        mapDiv.addEventListener('touchend', () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+
+        mapDiv.addEventListener('touchcancel', () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+    }
+
+    /**
+     * 長押しが検出されたときの処理
+     */
+    function handleLongPress(lat, lng) {
+        // 振動フィードバック
+        if (navigator.vibrate) {
+            navigator.vibrate(50);
+        }
+
+        // 重複チェック
+        const duplicateCheck = checkDuplicateNearby(lat, lng);
+        if (duplicateCheck.isDuplicate) {
+            const existingName = duplicateCheck.existingPoint
+                ? escapeHtml(duplicateCheck.existingPoint.name)
+                : '既存の訪問記録';
+
+            if (!confirm(`⚠️ 近くに既存の記録があります\n\n「${existingName}」\n\nそれでも追加しますか？`)) {
+                return;
+            }
+        }
+
+        // モーダルを表示
+        showCustomPointModal(lat, lng);
+    }
 }
 
 /**
@@ -1230,34 +1344,48 @@ async function saveCustomPointFromModal() {
 function displayCustomPointMarkers() {
     const customPoints = getUserCustomPoints();
 
-    customPoints.forEach(point => {
+    console.log(`[CustomPoint] カスタム地点マーカーを表示: ${customPoints.length}件`);
+
+    customPoints.forEach((point, index) => {
         try {
+            console.log(`[CustomPoint] マーカー作成中 [${index + 1}/${customPoints.length}]: ${point.name} (lat: ${point.lat}, lng: ${point.lng})`);
+
             const markerContent = document.createElement('div');
-            markerContent.className = 'custom-marker';
+            markerContent.className = 'custom-point-marker';
+            markerContent.style.cssText = 'position: relative; z-index: 1000;';
 
             const icon = '✅'; // 緑チェックアイコン
-            const size = '28px';
+            const size = '32px'; // サイズを拡大（28px → 32px）
 
             markerContent.innerHTML = `
-                <div style="font-size: ${size}; line-height: 1;">${icon}</div>
+                <div style="
+                    font-size: ${size};
+                    line-height: 1;
+                    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+                ">${icon}</div>
             `;
 
             const marker = new google.maps.marker.AdvancedMarkerElement({
                 map: map,
                 position: { lat: point.lat, lng: point.lng },
                 title: `${point.name} (${point.type})`,
-                content: markerContent
+                content: markerContent,
+                zIndex: 1000 // 高いz-indexで優先表示
             });
 
             marker.addListener('click', () => {
+                console.log(`[CustomPoint] マーカークリック: ${point.name}`);
                 showCustomPointPopup(point);
             });
 
             markers.push(marker);
+            console.log(`[CustomPoint] マーカー作成成功: ${point.name}`);
         } catch (error) {
-            console.error('[CustomPoint] マーカー作成エラー:', error);
+            console.error(`[CustomPoint] マーカー作成エラー [${point.name}]:`, error);
         }
     });
+
+    console.log(`[CustomPoint] マーカー表示完了: ${customPoints.length}件のマーカーを追加`);
 }
 
 /**
@@ -1419,95 +1547,10 @@ function setupCustomPointListeners() {
 }
 
 // カスタム地点機能を初期化（地図作成後に呼び出す）
-/**
- * FABボタンの状態をリセット
- */
-function resetFABButton() {
-    const fabButton = document.getElementById('fabAddCurry');
-    if (fabButton) {
-        fabButton.disabled = false;
-        fabButton.style.opacity = '1';
-    }
-}
-
-/**
- * FABボタンで現在地からカレーを追加
- */
-function setupFABButton() {
-    const fabButton = document.getElementById('fabAddCurry');
-    if (!fabButton) return;
-
-    fabButton.addEventListener('click', () => {
-        // 現在地を取得
-        if (navigator.geolocation) {
-            fabButton.disabled = true;
-            fabButton.style.opacity = '0.6';
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-
-                    // 地図を現在地に移動
-                    map.setCenter({ lat, lng });
-                    map.setZoom(16);
-
-                    // 重複チェック
-                    const duplicateCheck = checkDuplicateNearby(lat, lng);
-                    if (duplicateCheck.isDuplicate) {
-                        const existingName = duplicateCheck.existingPoint
-                            ? escapeHtml(duplicateCheck.existingPoint.name)
-                            : '既存の訪問記録';
-
-                        if (!confirm(`⚠️ 近くに既存の記録があります\n\n「${existingName}」\n\nそれでも追加しますか？`)) {
-                            resetFABButton();
-                            return;
-                        }
-                    }
-
-                    // モーダル表示
-                    showCustomPointModal(lat, lng);
-
-                    resetFABButton();
-                },
-                (error) => {
-                    console.error('現在地取得エラー:', error);
-
-                    // エラー時は地図中心でモーダル表示
-                    const center = map.getCenter();
-                    if (center) {
-                        alert('現在地の取得に失敗しました。\n地図の中心位置でカレーを追加します。');
-                        showCustomPointModal(center.lat(), center.lng());
-                    } else {
-                        alert('位置情報を取得できませんでした。');
-                    }
-
-                    resetFABButton();
-                },
-                {
-                    enableHighAccuracy: false,  // WiFi/セルラーで十分
-                    timeout: 15000,             // 15秒に延長
-                    maximumAge: 30000           // 30秒以内のキャッシュ許容
-                }
-            );
-        } else {
-            // Geolocation非対応時は地図中心でモーダル表示
-            const center = map.getCenter();
-            if (center) {
-                alert('お使いのブラウザは位置情報に対応していません。\n地図の中心位置でカレーを追加します。');
-                showCustomPointModal(center.lat(), center.lng());
-            } else {
-                alert('位置情報を取得できませんでした。');
-            }
-        }
-    });
-}
-
 function initCustomPoints() {
     setupCustomPointListeners();
     setupCustomPointMapClick();
     displayCustomPointMarkers();
-    setupFABButton();  // FABボタンを初期化
 }
 
 // createMap関数内でカスタム地点を初期化するよう、既存のcreateMap関数を拡張
