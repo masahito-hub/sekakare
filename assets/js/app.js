@@ -4,7 +4,9 @@ let map;
 let currentPlace = null;
 let curryLogs = JSON.parse(localStorage.getItem(Config.storageKeys.curryLogs) || '[]');
 let heatmapData = JSON.parse(localStorage.getItem(Config.storageKeys.heatmapData) || '{}');
-let markers = [];
+let placeMarkers = [];  // Places APIマーカー（🍛）
+let customMarkers = []; // カスタム地点マーカー（✅）
+let markers = [];       // 互換性のため残す（非推奨）
 let heatmapCircles = [];
 let zoomListenerAdded = false; // ズームリスナーの重複防止フラグ
 let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievements) || '{}');
@@ -189,11 +191,11 @@ function setupAutoSearch() {
             if (!autoSearchEnabled) {
                 console.log('🚫 検索スキップ (zoom < 13)');
 
-                // 既存マーカーを削除
-                if (markers && markers.length > 0) {
-                    markers.forEach(marker => marker.setMap(null));
-                    markers = [];
-                    console.log('広域表示モードに切り替え - マーカーをクリア');
+                // Places APIマーカーのみを削除（カスタムマーカーは保持）
+                if (placeMarkers && placeMarkers.length > 0) {
+                    placeMarkers.forEach(marker => marker.setMap(null));
+                    placeMarkers = [];
+                    console.log('広域表示モードに切り替え - Places APIマーカーをクリア');
                 }
                 return;
             }
@@ -297,8 +299,8 @@ async function autoSearchCurryShops(location) {
                 }
             });
 
-            // すべての店舗を表示（訪問済みも含む）
-            clearMarkers();
+            // Places APIマーカーのみをクリア（カスタムマーカーは保持）
+            clearPlaceMarkers();
 
             // 店舗を評価でソート（非破壊的）
             let placesToShow = [...places].sort((a, b) => {
@@ -386,7 +388,7 @@ function searchCurryByKeyword(keyword) {
         console.log('検索結果:', response);
 
         if (response.places && response.places.length > 0) {
-            clearMarkers();
+            clearPlaceMarkers();
             // 店名検索は最初の1件のみ表示
             const targetPlace = response.places[0];
             createNewMarker(targetPlace);
@@ -503,7 +505,8 @@ function createNewMarker(place) {
             showPopup(legacyPlace);
         });
 
-        markers.push(marker);
+        placeMarkers.push(marker);
+        markers.push(marker); // 互換性のため
 
     } catch (error) {
         console.error('マーカー作成エラー:', error);
@@ -565,13 +568,22 @@ function createSimpleMarker(place) {
         showPopup(legacyPlace);
     });
 
-    markers.push(marker);
+    placeMarkers.push(marker);
+    markers.push(marker); // 互換性のため
 }
 
-// マーカーをクリア
+// Places APIマーカーのみをクリア（カスタムマーカーは保持）
+function clearPlaceMarkers() {
+    placeMarkers.forEach(marker => marker.setMap(null));
+    placeMarkers = [];
+    console.log('[MarkerManagement] Places APIマーカーをクリアしました');
+}
+
+// 全マーカーをクリア（互換性のため残す、非推奨）
 function clearMarkers() {
     markers.forEach(marker => marker.setMap(null));
     markers = [];
+    console.warn('[MarkerManagement] clearMarkers()は非推奨です。clearPlaceMarkers()を使用してください');
 }
 
 // ポップアップを表示
@@ -1094,7 +1106,7 @@ function setupCustomPointMapClick() {
     });
 
     map.addListener('mousemove', (event) => {
-        if (longPressTimer) {
+        if (longPressTimer && event.domEvent) {
             const moveX = Math.abs(event.domEvent.clientX - startX);
             const moveY = Math.abs(event.domEvent.clientY - startY);
 
@@ -1102,6 +1114,7 @@ function setupCustomPointMapClick() {
             if (moveX > MOVE_THRESHOLD || moveY > MOVE_THRESHOLD) {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
+                console.log('[LongPress] 移動検出によりキャンセル (desktop)');
             }
         }
     });
@@ -1164,9 +1177,10 @@ function setupCustomPointMapClick() {
                 if (moveX > MOVE_THRESHOLD || moveY > MOVE_THRESHOLD) {
                     clearTimeout(longPressTimer);
                     longPressTimer = null;
+                    console.log('[LongPress] 移動検出によりキャンセル (mobile)');
                 }
             }
-        });
+        }, { passive: true });
 
         mapDiv.addEventListener('touchend', () => {
             if (longPressTimer) {
@@ -1187,6 +1201,8 @@ function setupCustomPointMapClick() {
      * 長押しが検出されたときの処理
      */
     function handleLongPress(lat, lng) {
+        console.log('[LongPress] 長押し検出成功:', { lat, lng });
+
         // 振動フィードバック
         if (navigator.vibrate) {
             navigator.vibrate(50);
@@ -1200,6 +1216,7 @@ function setupCustomPointMapClick() {
                 : '既存の訪問記録';
 
             if (!confirm(`⚠️ 近くに既存の記録があります\n\n「${existingName}」\n\nそれでも追加しますか？`)) {
+                console.log('[LongPress] ユーザーが重複追加をキャンセル');
                 return;
             }
         }
@@ -1342,6 +1359,10 @@ async function saveCustomPointFromModal() {
  * カスタム地点のマーカーを表示
  */
 function displayCustomPointMarkers() {
+    // 既存のカスタムマーカーをクリア
+    customMarkers.forEach(marker => marker.setMap(null));
+    customMarkers = [];
+
     const customPoints = getUserCustomPoints();
 
     console.log(`[CustomPoint] カスタム地点マーカーを表示: ${customPoints.length}件`);
@@ -1378,7 +1399,8 @@ function displayCustomPointMarkers() {
                 showCustomPointPopup(point);
             });
 
-            markers.push(marker);
+            customMarkers.push(marker);
+            markers.push(marker); // 互換性のため
             console.log(`[CustomPoint] マーカー作成成功: ${point.name}`);
         } catch (error) {
             console.error(`[CustomPoint] マーカー作成エラー [${point.name}]:`, error);
