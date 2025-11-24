@@ -1089,7 +1089,7 @@ function setupCustomPointMapClick() {
     let startX = 0;
     let startY = 0;
     const LONG_PRESS_DURATION = 500; // 500ms
-    const MOVE_THRESHOLD = 10; // 10px以内の移動は許容
+    const MOVE_THRESHOLD = 15; // 15px以内の移動は許容（10px → 15pxに増加）
 
     // デスクトップ（マウス）用の長押し検出
     map.addListener('mousedown', (event) => {
@@ -1106,7 +1106,10 @@ function setupCustomPointMapClick() {
     });
 
     map.addListener('mousemove', (event) => {
-        if (longPressTimer && event.domEvent) {
+        // タイマーがなければ何もしない
+        if (!longPressTimer) return;
+
+        if (event.domEvent) {
             const moveX = Math.abs(event.domEvent.clientX - startX);
             const moveY = Math.abs(event.domEvent.clientY - startY);
 
@@ -1114,7 +1117,7 @@ function setupCustomPointMapClick() {
             if (moveX > MOVE_THRESHOLD || moveY > MOVE_THRESHOLD) {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
-                console.log('[LongPress] 移動検出によりキャンセル (desktop)');
+                console.log('[LongPress] キャンセル: 移動検出 (desktop)', moveX, moveY);
             }
         }
     });
@@ -1123,6 +1126,15 @@ function setupCustomPointMapClick() {
         if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
+        }
+    });
+
+    // マウスが地図外に出た場合もクリア
+    map.addListener('mouseleave', () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+            console.log('[LongPress] キャンセル: mouseleave');
         }
     });
 
@@ -1168,16 +1180,20 @@ function setupCustomPointMapClick() {
             }, LONG_PRESS_DURATION);
         });
 
-        mapDiv.addEventListener('touchmove', (e) => {
-            if (longPressTimer && e.touches.length === 1) {
-                const moveX = Math.abs(e.touches[0].clientX - startX);
-                const moveY = Math.abs(e.touches[0].clientY - startY);
+        mapDiv.addEventListener('touchmove', (event) => {
+            // タイマーがなければ何もしない
+            if (!longPressTimer) return;
 
-                // 移動距離が閾値を超えたらキャンセル
-                if (moveX > MOVE_THRESHOLD || moveY > MOVE_THRESHOLD) {
+            if (event.touches[0]) {
+                const touch = event.touches[0];
+                const deltaX = Math.abs(touch.clientX - startX);
+                const deltaY = Math.abs(touch.clientY - startY);
+
+                // 閾値を超えたらキャンセル
+                if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
                     clearTimeout(longPressTimer);
                     longPressTimer = null;
-                    console.log('[LongPress] 移動検出によりキャンセル (mobile)');
+                    console.log('[LongPress] キャンセル: 移動検出', deltaX, deltaY);
                 }
             }
         }, { passive: true });
@@ -1189,12 +1205,14 @@ function setupCustomPointMapClick() {
             }
         });
 
+        // タッチキャンセル時もクリア
         mapDiv.addEventListener('touchcancel', () => {
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
+                console.log('[LongPress] キャンセル: touchcancel');
             }
-        });
+        }, { passive: true });
     }
 
     /**
