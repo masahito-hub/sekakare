@@ -186,6 +186,12 @@ function createTickerItemHTML(item) {
 function startFadeAnimation() {
     if (!elements.tickerContent || tickerData.length === 0) return;
 
+    // 既存のインターバルをクリア（重複防止）
+    if (tickerInterval) {
+        clearInterval(tickerInterval);
+        tickerInterval = null;
+    }
+
     // 初期表示
     currentIndex = 0;
     showCurrentItem();
