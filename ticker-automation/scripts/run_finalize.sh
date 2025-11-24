@@ -23,27 +23,32 @@ echo "Started at: $(date)"
 echo ""
 
 # リアクション収集
-echo "[1/5] Collecting reactions..."
+echo "[1/6] Collecting reactions..."
 node src/collect_reactions.js
 
 # アーカイブ更新
 echo ""
-echo "[2/5] Updating archive..."
+echo "[2/6] Updating archive..."
 node src/update_archive.js
 
 # ticker.json生成
 echo ""
-echo "[3/5] Generating ticker.json..."
+echo "[3/6] Generating ticker.json..."
 node src/generate_ticker.js
+
+# ticker-data.csv生成
+echo ""
+echo "[4/6] Generating ticker-data.csv..."
+node src/generate_csv.js
 
 # FTPデプロイ
 echo ""
-echo "[4/5] Deploying to Xserver..."
+echo "[5/6] Deploying to Xserver..."
 node src/deploy.js
 
 # 結果通知
 echo ""
-echo "[5/5] Sending result notification..."
+echo "[6/6] Sending result notification..."
 node src/notify_result.js
 
 echo ""

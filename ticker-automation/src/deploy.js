@@ -7,6 +7,7 @@ dotenv.config();
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const TICKER_FILE = path.join(DATA_DIR, 'ticker.json');
+const CSV_FILE = path.join(DATA_DIR, 'ticker-data.csv');
 
 async function deployWithRetry(maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -28,8 +29,12 @@ async function deployWithRetry(maxRetries = 3) {
 
       // ticker.jsonをアップロード
       await client.uploadFrom(TICKER_FILE, process.env.FTP_REMOTE_PATH);
+      console.log(`  ✅ Uploaded ticker.json to ${process.env.FTP_REMOTE_PATH}`);
 
-      console.log(`  ✅ Uploaded to ${process.env.FTP_REMOTE_PATH}`);
+      // ticker-data.csvをアップロード
+      const csvRemotePath = process.env.FTP_REMOTE_PATH.replace('ticker.json', 'assets/data/ticker-data.csv');
+      await client.uploadFrom(CSV_FILE, csvRemotePath);
+      console.log(`  ✅ Uploaded ticker-data.csv to ${csvRemotePath}`);
 
       client.close();
       return true;
@@ -50,13 +55,20 @@ async function deployWithRetry(maxRetries = 3) {
 }
 
 async function deploy() {
-  console.log('🚀 Deploying ticker.json to Xserver...');
+  console.log('🚀 Deploying ticker files to Xserver...');
 
   // ticker.jsonの存在確認
   try {
     await fs.access(TICKER_FILE);
   } catch (error) {
     throw new Error('ticker.json not found. Please run generate_ticker.js first.');
+  }
+
+  // ticker-data.csvの存在確認
+  try {
+    await fs.access(CSV_FILE);
+  } catch (error) {
+    throw new Error('ticker-data.csv not found. Please run generate_csv.js first.');
   }
 
   // FTP設定の確認
