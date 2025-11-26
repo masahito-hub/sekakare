@@ -803,6 +803,11 @@ function displayHeatmap() {
                     autoSearchEnabled = false;
                     console.log('自動検索: OFF (zoom <= 12)');
                 }
+
+                // カスタムマーカーの表示/非表示制御
+                if (typeof displayCustomPointMarkers === 'function') {
+                    displayCustomPointMarkers();
+                }
             });
             zoomListenerAdded = true;
         }
@@ -1088,8 +1093,8 @@ function setupCustomPointMapClick() {
     let longPressTriggered = false;
     let startX = 0;
     let startY = 0;
-    const LONG_PRESS_DURATION = 500; // 500ms
-    const MOVE_THRESHOLD = 15; // 15px以内の移動は許容（10px → 15pxに増加）
+    const LONG_PRESS_DURATION = 600; // 600ms
+    const MOVE_THRESHOLD = 25; // 25px以内の移動は許容
 
     // デスクトップ（マウス）用の長押し検出
     map.addListener('mousedown', (event) => {
@@ -1226,20 +1231,60 @@ function setupCustomPointMapClick() {
             navigator.vibrate(50);
         }
 
-        // 重複チェック
+        // スマート重複チェック（3段階）
         const duplicateCheck = checkDuplicateNearby(lat, lng);
-        if (duplicateCheck.isDuplicate) {
-            const existingName = duplicateCheck.existingPoint
-                ? escapeHtml(duplicateCheck.existingPoint.name)
-                : '既存の訪問記録';
 
-            if (!confirm(`⚠️ 近くに既存の記録があります\n\n「${existingName}」\n\nそれでも追加しますか？`)) {
-                console.log('[LongPress] ユーザーが重複追加をキャンセル');
+        if (duplicateCheck.tier === 'auto') {
+            // 5m以内: 自動で既存地点の記録追加モーダルを表示
+            console.log(`[LongPress] 自動判定: ${duplicateCheck.distance}m以内 - 既存地点として扱う`);
+            if (duplicateCheck.existingPoint) {
+                // 既存地点のポップアップを表示（カスタム地点の場合）
+                if (duplicateCheck.existingPoint.isCustomPoint !== false) {
+                    showCustomPointPopup(duplicateCheck.existingPoint);
+                } else {
+                    // Places API地点の場合は通常のポップアップ
+                    const legacyPlace = {
+                        name: duplicateCheck.existingPoint.name,
+                        place_id: duplicateCheck.existingPoint.id,
+                        geometry: { location: { lat: () => duplicateCheck.existingPoint.lat, lng: () => duplicateCheck.existingPoint.lng } },
+                        vicinity: duplicateCheck.existingPoint.address || '住所不明',
+                        rating: null
+                    };
+                    showPopup(legacyPlace);
+                }
+            }
+            return;
+        } else if (duplicateCheck.tier === 'confirm') {
+            // 5-30m: 確認ダイアログ
+            console.log(`[LongPress] 確認判定: ${duplicateCheck.distance}m`);
+            if (!confirm(duplicateCheck.message + '\n\n「はい」→既存地点に記録追加\n「いいえ」→新しい地点として作成')) {
+                // 「いいえ」を選択: 新しい地点として作成
+                console.log('[LongPress] ユーザーが新しい地点として作成を選択');
+                showCustomPointModal(lat, lng);
+                return;
+            } else {
+                // 「はい」を選択: 既存地点として扱う
+                console.log('[LongPress] ユーザーが既存地点への記録追加を選択');
+                if (duplicateCheck.existingPoint) {
+                    if (duplicateCheck.existingPoint.isCustomPoint !== false) {
+                        showCustomPointPopup(duplicateCheck.existingPoint);
+                    } else {
+                        const legacyPlace = {
+                            name: duplicateCheck.existingPoint.name,
+                            place_id: duplicateCheck.existingPoint.id,
+                            geometry: { location: { lat: () => duplicateCheck.existingPoint.lat, lng: () => duplicateCheck.existingPoint.lng } },
+                            vicinity: duplicateCheck.existingPoint.address || '住所不明',
+                            rating: null
+                        };
+                        showPopup(legacyPlace);
+                    }
+                }
                 return;
             }
         }
 
-        // モーダルを表示
+        // 30m以上: 新しい地点として作成
+        console.log('[LongPress] 新規地点として作成');
         showCustomPointModal(lat, lng);
     }
 }
@@ -1384,6 +1429,13 @@ function displayCustomPointMarkers() {
     const customPoints = getUserCustomPoints();
 
     console.log(`[CustomPoint] カスタム地点マーカーを表示: ${customPoints.length}件`);
+
+    // ズームレベルチェック: zoom <= 12では非表示
+    const currentZoom = map ? map.getZoom() : 13;
+    if (currentZoom <= 12) {
+        console.log(`[CustomPoint] ズーム ${currentZoom} のため、カスタムマーカーを非表示`);
+        return;
+    }
 
     customPoints.forEach((point, index) => {
         try {

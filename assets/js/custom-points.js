@@ -185,52 +185,98 @@ function updateCustomPoint(id, updates) {
 }
 
 /**
- * 重複地点をチェック
+ * Haversine公式で2地点間の距離（メートル）を計算
+ * @param {number} lat1 - 地点1の緯度
+ * @param {number} lng1 - 地点1の経度
+ * @param {number} lat2 - 地点2の緯度
+ * @param {number} lng2 - 地点2の経度
+ * @returns {number} 距離（メートル）
+ */
+function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371000; // 地球の半径（メートル）
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // メートル単位
+}
+
+/**
+ * スマート重複地点チェック（3段階）
  * @param {number} newLat - 新規地点の緯度
  * @param {number} newLng - 新規地点の経度
- * @param {number} thresholdDegrees - 閾値（度）
- * @returns {Object} { isDuplicate: boolean, existingPoint: Object|null, existingPlaceKey: string|null }
+ * @returns {Object} {
+ *   tier: 'auto'|'confirm'|'new',
+ *   distance: number,
+ *   existingPoint: Object|null,
+ *   message: string|null
+ * }
  */
-function checkDuplicateNearby(newLat, newLng, thresholdDegrees = CUSTOM_POINTS_CONFIG.DUPLICATE_THRESHOLD_DEGREES) {
-    // カスタム地点との重複チェック
+function checkDuplicateNearby(newLat, newLng) {
+    let closestPoint = null;
+    let closestDistance = Infinity;
+
+    // カスタム地点との距離チェック
     const customPoints = getUserCustomPoints();
     for (const point of customPoints) {
-        const distance = Math.sqrt(
-            Math.pow(point.lat - newLat, 2) + Math.pow(point.lng - newLng, 2)
-        );
-
-        if (distance < thresholdDegrees) {
-            return {
-                isDuplicate: true,
-                existingPoint: point,
-                existingPlaceKey: null
-            };
+        const distance = calculateDistance(newLat, newLng, point.lat, point.lng);
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestPoint = point;
         }
     }
 
-    // Places API訪問記録との重複チェック（グローバル変数を使用）
-    if (typeof heatmapData !== 'undefined' && heatmapData) {
-        for (const [key, data] of Object.entries(heatmapData)) {
-            const [lat, lng] = key.split(',').map(Number);
-            const distance = Math.sqrt(
-                Math.pow(lat - newLat, 2) + Math.pow(lng - newLng, 2)
-            );
-
-            if (distance < thresholdDegrees) {
-                return {
-                    isDuplicate: true,
-                    existingPoint: null,
-                    existingPlaceKey: key
-                };
+    // Places API訪問記録との距離チェック
+    if (typeof curryLogs !== 'undefined' && Array.isArray(curryLogs)) {
+        for (const log of curryLogs) {
+            if (log.lat && log.lng) {
+                const distance = calculateDistance(newLat, newLng, log.lat, log.lng);
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestPoint = {
+                        name: log.name,
+                        lat: log.lat,
+                        lng: log.lng,
+                        id: log.id
+                    };
+                }
             }
         }
     }
 
-    return {
-        isDuplicate: false,
-        existingPoint: null,
-        existingPlaceKey: null
-    };
+    // 3段階判定
+    if (closestDistance <= 5) {
+        // 5m以内: 自動で既存地点として扱う
+        return {
+            tier: 'auto',
+            distance: Math.round(closestDistance),
+            existingPoint: closestPoint,
+            message: null
+        };
+    } else if (closestDistance <= 30) {
+        // 5-30m: 確認ダイアログ
+        const distanceText = Math.round(closestDistance);
+        return {
+            tier: 'confirm',
+            distance: distanceText,
+            existingPoint: closestPoint,
+            message: `${distanceText}m先に「${closestPoint.name}」があります。同じ場所ですか？`
+        };
+    } else {
+        // 30m以上: 新しい地点として作成
+        return {
+            tier: 'new',
+            distance: Math.round(closestDistance),
+            existingPoint: null,
+            message: null
+        };
+    }
 }
 
 /**
