@@ -35,3 +35,10 @@ jobs:
             **/node_modules/**
             .github/**
             assets/js/config.template.js
+exclude: |
+     **/.git*
+     **/.git*/**
+     **/node_modules/**
+     .github/**
+     assets/js/config.template.js
+     ticker.json
