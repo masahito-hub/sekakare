@@ -1091,20 +1091,23 @@ function setupCustomPointMapClick() {
 
     let longPressTimer = null;
     let longPressTriggered = false;
+    let longPressCancelled = false;
     let startX = 0;
     let startY = 0;
-    const LONG_PRESS_DURATION = 600; // 600ms
-    const MOVE_THRESHOLD = 25; // 25px以内の移動は許容
+    const LONG_PRESS_DURATION = 800; // 800ms
+    const MOVE_THRESHOLD = 35; // 35px以内の移動は許容
 
     // デスクトップ（マウス）用の長押し検出
     map.addListener('mousedown', (event) => {
         if (!event.latLng) return;
 
         longPressTriggered = false;
+        longPressCancelled = false;
         startX = event.domEvent.clientX;
         startY = event.domEvent.clientY;
 
         longPressTimer = setTimeout(() => {
+            if (longPressCancelled) return;
             longPressTriggered = true;
             handleLongPress(event.latLng.lat(), event.latLng.lng());
         }, LONG_PRESS_DURATION);
@@ -1120,6 +1123,7 @@ function setupCustomPointMapClick() {
 
             // 移動距離が閾値を超えたらキャンセル
             if (moveX > MOVE_THRESHOLD || moveY > MOVE_THRESHOLD) {
+                longPressCancelled = true;
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
                 console.log('[LongPress] キャンセル: 移動検出 (desktop)', moveX, moveY);
@@ -1150,10 +1154,12 @@ function setupCustomPointMapClick() {
             if (e.touches.length !== 1) return; // 単一タッチのみ
 
             longPressTriggered = false;
+            longPressCancelled = false;
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
 
             longPressTimer = setTimeout(() => {
+                if (longPressCancelled) return;
                 longPressTriggered = true;
 
                 // タッチ位置から緯度経度を計算
@@ -1196,6 +1202,7 @@ function setupCustomPointMapClick() {
 
                 // 閾値を超えたらキャンセル
                 if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
+                    longPressCancelled = true;
                     clearTimeout(longPressTimer);
                     longPressTimer = null;
                     console.log('[LongPress] キャンセル: 移動検出', deltaX, deltaY);
