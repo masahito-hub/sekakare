@@ -144,3 +144,6 @@ assets/js/config.js
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Ticker data (managed by VPS automation)
+ticker.json
