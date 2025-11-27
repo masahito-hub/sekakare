@@ -636,6 +636,7 @@ function recordVisit() {
     console.log('記録中:', currentPlace.name);
 
     const log = {
+        visitId: generateUniqueId(), // 訪問ごとに一意のID
         id: currentPlace.place_id,
         name: currentPlace.name,
         address: currentPlace.vicinity,

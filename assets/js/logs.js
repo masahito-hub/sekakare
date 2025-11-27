@@ -143,6 +143,10 @@ function loadVisits() {
                 if (!visit.photos) {
                     visit.photos = [];
                 }
+                // 後方互換性: visitId がない場合は追加
+                if (!visit.visitId) {
+                    visit.visitId = generateUniqueId();
+                }
                 return visit;
             });
 
@@ -267,6 +271,7 @@ function displayLogsByRegion(logs) {
         groupedByPrefecture[prefecture].forEach(visit => {
             const visitDate = visit.visitedAt || visit.createdAt || visit.date || '日付不明';
             const placeId = visit.placeId || visit.id || visit.place_id || '';
+            const visitId = visit.visitId || visit.id; // 訪問ごとの一意ID
             const name = visit.name || '店舗名不明';
             const address = visit.address || visit.vicinity || '住所不明';
             const isCustomPoint = visit.isCustomPoint === true;
@@ -290,6 +295,7 @@ function displayLogsByRegion(logs) {
             html += `
                 <div class="log-card">
                     <button class="edit-icon" data-place-id="${escapeHtml(placeId)}" aria-label="編集">✏️</button>
+                    <button class="delete-visit-icon" data-visit-id="${escapeHtml(visitId)}" data-is-custom="${isCustomPoint}" aria-label="削除">🗑️</button>
                     <h3>
                         <a href="/?placeId=${encodeURIComponent(placeId)}" class="shop-link">
                             ${escapeHtml(name)}${customPointIcon}
@@ -333,6 +339,7 @@ function displayLogsByDate(logs) {
         monthLogs.forEach(visit => {
             const visitDate = visit.visitedAt || visit.createdAt || visit.date || '日付不明';
             const placeId = visit.placeId || visit.id || visit.place_id || '';
+            const visitId = visit.visitId || visit.id; // 訪問ごとの一意ID
             const name = visit.name || '店舗名不明';
             const address = visit.address || visit.vicinity || '住所不明';
             const isCustomPoint = visit.isCustomPoint === true;
@@ -356,6 +363,7 @@ function displayLogsByDate(logs) {
             html += `
                 <div class="log-card">
                     <button class="edit-icon" data-place-id="${escapeHtml(placeId)}" aria-label="編集">✏️</button>
+                    <button class="delete-visit-icon" data-visit-id="${escapeHtml(visitId)}" data-is-custom="${isCustomPoint}" aria-label="削除">🗑️</button>
                     <h3>
                         <a href="/?placeId=${encodeURIComponent(placeId)}" class="shop-link">
                             ${escapeHtml(name)}${customPointIcon}
@@ -459,10 +467,22 @@ function setupModalListeners() {
         if (e.target.classList.contains('log-photo-thumbnail')) {
             const placeId = e.target.dataset.placeId;
             const photoIndex = parseInt(e.target.dataset.photoIndex, 10);
-            
+
             const log = visits.find(l => (l.placeId || l.id || l.place_id) === placeId);
             if (log && log.photos && log.photos.length > 0) {
                 openImageView(photoIndex, log.photos);
+            }
+        }
+    });
+
+    // 削除ボタンのクリック（イベント委譲）
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-visit-icon') || e.target.parentElement.classList.contains('delete-visit-icon')) {
+            const button = e.target.classList.contains('delete-visit-icon') ? e.target : e.target.parentElement;
+            const visitId = button.dataset.visitId;
+            const isCustom = button.dataset.isCustom === 'true';
+            if (visitId) {
+                deleteVisitConfirm(visitId, isCustom);
             }
         }
     });
@@ -1134,6 +1154,141 @@ function editCustomPoint(pointId) {
     // 最初の入力要素にフォーカス
     if (modalVisitedAt) {
         modalVisitedAt.focus();
+    }
+}
+
+/**
+ * 訪問ログを削除（確認ダイアログ付き）
+ * @param {string} visitId - 訪問ID
+ * @param {boolean} isCustom - カスタム地点かどうか
+ */
+function deleteVisitConfirm(visitId, isCustom) {
+    // カスタム地点の場合は既存の関数を使用
+    if (isCustom) {
+        deleteCustomPointConfirm(visitId);
+        return;
+    }
+
+    // 通常のログから該当訪問を検索
+    const visit = visits.find(v => v.visitId === visitId);
+
+    if (!visit) {
+        alert('訪問記録が見つかりませんでした');
+        return;
+    }
+
+    const visitDate = visit.visitedAt || visit.createdAt || visit.date || '日付不明';
+    const menuText = visit.menu ? `\nメニュー：${visit.menu}` : '';
+
+    // 確認ダイアログ
+    const confirmMessage = `このカレーの記録を削除しますか？\n\n店名：${visit.name}\n日付：${visitDate}${menuText}\n\n※地図のマーカーやヒートマップからも消えます`;
+
+    if (confirm(confirmMessage)) {
+        const success = deleteVisitLog(visitId);
+        if (success) {
+            // ログ再表示
+            loadVisits();
+            displayLogs();
+            updateHeader();
+
+            // 成功メッセージ
+            const deleteMessage = document.createElement('div');
+            deleteMessage.className = 'toast-notification';
+            deleteMessage.textContent = '削除しました ✓';
+            document.body.appendChild(deleteMessage);
+            setTimeout(() => deleteMessage.remove(), 2000);
+        } else {
+            alert('削除に失敗しました');
+        }
+    }
+}
+
+/**
+ * 訪問ログを削除（実際の削除処理）
+ * @param {string} visitId - 訪問ID
+ * @returns {boolean} 成功時true
+ */
+function deleteVisitLog(visitId) {
+    if (!visitId) {
+        console.error('[Delete] visitId が指定されていません');
+        return false;
+    }
+
+    try {
+        const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.curryLogs)
+            ? Config.storageKeys.curryLogs
+            : 'curryLogs';
+
+        // ログを読み込み
+        const logs = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+        // 削除前の件数
+        const beforeCount = logs.length;
+
+        // 該当ログを除外
+        const updatedLogs = logs.filter(log => log.visitId !== visitId);
+
+        // 削除されたかチェック
+        if (updatedLogs.length === beforeCount) {
+            console.warn('[Delete] 削除対象が見つかりませんでした:', visitId);
+            return false;
+        }
+
+        // 保存
+        localStorage.setItem(storageKey, JSON.stringify(updatedLogs));
+
+        // ヒートマップデータも更新
+        updateHeatmapAfterDelete(logs, updatedLogs);
+
+        console.log('[Delete] 訪問ログを削除しました:', visitId);
+        return true;
+    } catch (error) {
+        console.error('[Delete] 削除エラー:', error);
+        return false;
+    }
+}
+
+/**
+ * ヒートマップデータを削除後に更新
+ * @param {Array} beforeLogs - 削除前のログ
+ * @param {Array} afterLogs - 削除後のログ
+ */
+function updateHeatmapAfterDelete(beforeLogs, afterLogs) {
+    try {
+        const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.heatmapData)
+            ? Config.storageKeys.heatmapData
+            : 'heatmapData';
+
+        const heatmapData = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+        // 削除されたログを特定
+        const deletedLog = beforeLogs.find(log =>
+            !afterLogs.some(afterLog => afterLog.visitId === log.visitId)
+        );
+
+        if (!deletedLog || !deletedLog.id) {
+            return;
+        }
+
+        const placeId = deletedLog.id;
+
+        // ヒートマップデータのカウントをデクリメント
+        if (heatmapData[placeId]) {
+            heatmapData[placeId].count--;
+
+            // カウントが0になったら削除
+            if (heatmapData[placeId].count <= 0) {
+                delete heatmapData[placeId];
+                console.log('[Heatmap] プレイスを削除:', placeId);
+            } else {
+                console.log('[Heatmap] カウントを更新:', placeId, heatmapData[placeId].count);
+            }
+
+            // 保存
+            localStorage.setItem(storageKey, JSON.stringify(heatmapData));
+        }
+    } catch (error) {
+        console.error('[Heatmap] 更新エラー:', error);
     }
 }
 
