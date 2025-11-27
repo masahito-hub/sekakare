@@ -164,6 +164,32 @@ body {
     border-radius: 4px;
 }
 
+/* 削除アイコン */
+.delete-visit-icon {
+    position: absolute;
+    top: 12px;
+    right: 48px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s, transform 0.2s;
+    padding: 8px;
+    line-height: 1;
+}
+
+.delete-visit-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.delete-visit-icon:focus {
+    outline: 2px solid #dc3545;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
 .log-card h3 {
     font-size: 18px;
     color: #3A2A0A;
