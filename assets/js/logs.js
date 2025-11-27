@@ -143,6 +143,10 @@ function loadVisits() {
                 if (!visit.photos) {
                     visit.photos = [];
                 }
+                // 後方互換性: visitId がない場合は生成
+                if (!visit.visitId) {
+                    visit.visitId = generateUniqueId();
+                }
                 return visit;
             });
 
@@ -289,6 +293,7 @@ function displayLogsByRegion(logs) {
 
             html += `
                 <div class="log-card">
+                    <button class="delete-icon" data-visit-id="${escapeHtml(visit.visitId)}" aria-label="削除">🗑️</button>
                     <button class="edit-icon" data-place-id="${escapeHtml(placeId)}" aria-label="編集">✏️</button>
                     <h3>
                         <a href="/?placeId=${encodeURIComponent(placeId)}" class="shop-link">
@@ -355,6 +360,7 @@ function displayLogsByDate(logs) {
 
             html += `
                 <div class="log-card">
+                    <button class="delete-icon" data-visit-id="${escapeHtml(visit.visitId)}" aria-label="削除">🗑️</button>
                     <button class="edit-icon" data-place-id="${escapeHtml(placeId)}" aria-label="編集">✏️</button>
                     <h3>
                         <a href="/?placeId=${encodeURIComponent(placeId)}" class="shop-link">
@@ -443,6 +449,17 @@ function setupModalElements() {
 
 // モーダル関連のイベントリスナー設定
 function setupModalListeners() {
+    // 削除アイコンのクリック（イベント委譲）
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-icon') || e.target.parentElement.classList.contains('delete-icon')) {
+            const button = e.target.classList.contains('delete-icon') ? e.target : e.target.parentElement;
+            const visitId = button.dataset.visitId;
+            if (visitId) {
+                deleteVisitConfirm(visitId);
+            }
+        }
+    });
+
     // 編集アイコンのクリック（イベント委譲）
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('edit-icon') || e.target.parentElement.classList.contains('edit-icon')) {
@@ -1056,6 +1073,120 @@ function showSaveSuccessMessage() {
     setTimeout(() => {
         toast.remove();
     }, 2000);
+}
+
+/**
+ * 訪問ログ削除の確認ダイアログ
+ * @param {string} visitId - 削除する訪問のID
+ */
+function deleteVisitConfirm(visitId) {
+    const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.curryLogs)
+        ? Config.storageKeys.curryLogs
+        : 'curryLogs';
+
+    const logs = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    const log = logs.find(l => l.visitId === visitId);
+
+    if (!log) {
+        alert('ログが見つかりませんでした');
+        return;
+    }
+
+    const visitDate = log.visitedAt || log.createdAt || log.date || '日付不明';
+    const name = log.name || '店舗名不明';
+    const menu = log.menu ? `\nメニュー：${log.menu}` : '';
+
+    const message = `このカレーの記録を削除しますか？\n\n店名：${name}\n日付：${visitDate}${menu}\n\n※地図のマーカーやヒートマップからも消えます`;
+
+    if (confirm(message)) {
+        deleteVisitLog(visitId, log);
+    }
+}
+
+/**
+ * 訪問ログを削除（レビュー改善版：findIndex + splice）
+ * @param {string} visitId - 削除する訪問のID
+ * @param {Object} deletedLog - 削除するログオブジェクト（パフォーマンス改善のため事前取得）
+ */
+function deleteVisitLog(visitId, deletedLog) {
+    try {
+        const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.curryLogs)
+            ? Config.storageKeys.curryLogs
+            : 'curryLogs';
+
+        const logs = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+        // レビュー対応1: filter()の代わりにfindIndex() + splice()で最初の1件のみ削除
+        const index = logs.findIndex(log => log.visitId === visitId);
+        if (index === -1) {
+            console.error('削除対象のログが見つかりません:', visitId);
+            alert('ログの削除に失敗しました');
+            return;
+        }
+
+        // 1件のみ削除
+        logs.splice(index, 1);
+
+        // localStorageに保存
+        localStorage.setItem(storageKey, JSON.stringify(logs));
+
+        // レビュー対応2: ヒートマップ更新（削除ログオブジェクトを直接渡す）
+        updateHeatmapAfterDelete(deletedLog);
+
+        // UI更新
+        loadVisits();
+        displayLogs();
+        updateHeader();
+
+        // 成功メッセージ
+        showSaveSuccessMessage();
+
+        console.log('[Delete] 訪問ログを削除しました:', visitId);
+
+    } catch (error) {
+        console.error('[Delete] 削除エラー:', error);
+        alert('削除中にエラーが発生しました');
+    }
+}
+
+/**
+ * ヒートマップデータを削除後に更新（レビュー改善版：O(n)）
+ * @param {Object} deletedLog - 削除されたログオブジェクト
+ */
+function updateHeatmapAfterDelete(deletedLog) {
+    try {
+        const storageKey = (typeof Config !== 'undefined' && Config.storageKeys && Config.storageKeys.heatmapData)
+            ? Config.storageKeys.heatmapData
+            : 'heatmapData';
+
+        let heatmapData = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+        // レビュー対応2: 削除ログの座標を使って直接更新（O(n²) → O(n)）
+        const placeId = deletedLog.id || deletedLog.placeId;
+
+        if (placeId && heatmapData[placeId]) {
+            heatmapData[placeId].count--;
+
+            // カウントが0以下になったら削除
+            if (heatmapData[placeId].count <= 0) {
+                delete heatmapData[placeId];
+                console.log('[Heatmap] プレイスのヒートマップデータを削除:', placeId);
+            } else {
+                console.log('[Heatmap] ヒートマップカウントをデクリメント:', placeId, heatmapData[placeId].count);
+            }
+
+            // 保存
+            localStorage.setItem(storageKey, JSON.stringify(heatmapData));
+
+            // ヒートマップを再描画（app.jsのdisplayHeatmap関数を呼び出し）
+            if (typeof displayHeatmap === 'function') {
+                displayHeatmap();
+            }
+        }
+
+    } catch (error) {
+        console.error('[Heatmap] ヒートマップ更新エラー:', error);
+    }
 }
 
 /**

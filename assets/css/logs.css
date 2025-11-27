@@ -138,6 +138,32 @@ body {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
+/* 削除アイコン */
+.delete-icon {
+    position: absolute;
+    top: 12px;
+    right: 48px; /* 編集アイコンの左側に配置 */
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s, transform 0.2s;
+    padding: 8px;
+    line-height: 1;
+}
+
+.delete-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.delete-icon:focus {
+    outline: 2px solid #DC143C;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
 /* 編集アイコン */
 .edit-icon {
     position: absolute;
