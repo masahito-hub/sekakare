@@ -637,6 +637,7 @@ function recordVisit() {
 
     const log = {
         id: currentPlace.place_id,
+        visitId: generateUniqueId(), // 訪問ごとの一意ID
         name: currentPlace.name,
         address: currentPlace.vicinity,
         lat: currentPlace.geometry.location.lat(),
