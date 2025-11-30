@@ -122,8 +122,12 @@
         <div id="map"></div>
 
         <div class="controls">
-            <input type="text" class="search-box" placeholder="🔍 店名で検索... (例: スープカレー GARAKU)" id="searchBox">
-            <small style="color: #666;">Enterキーで検索</small>
+            <div class="search-wrapper">
+                <input type="text" class="search-box" placeholder="🔍 店名で検索... (例: スープカレー GARAKU)" id="searchBox">
+                <div class="search-suggestions" id="searchSuggestions"></div>
+                <div class="search-results" id="searchResults"></div>
+            </div>
+            <small style="color: #666;">2文字以上でサジェスト表示 | Enterキーで検索結果一覧</small>
         </div>
 
         <div class="log-section">

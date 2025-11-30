@@ -12,6 +12,9 @@ let zoomListenerAdded = false; // ズームリスナーの重複防止フラグ
 let achievements = JSON.parse(localStorage.getItem(Config.storageKeys.achievements) || '{}');
 let searchTimeout;
 let isManualSearch = false;  // 手動検索フラグを追加
+let suggestDebounceTimeout;  // サジェスト用デバウンスタイマー
+let currentSuggestions = []; // 現在のサジェスト一覧
+let currentSearchResults = []; // 現在の検索結果一覧
 
 // 自動検索のズーム閾値（ヒステリシス付き）
 const AUTO_ZOOM_ON = 13;   // 13以上でON（区・市レベル）
@@ -993,6 +996,300 @@ function updateAchievementDisplay() {
     logTitle.appendChild(stats);
 }
 
+/**
+ * ローカルログとカスタム地点を検索
+ * @param {string} query - 検索キーワード
+ * @returns {Array} マッチした結果の配列
+ */
+function searchLocalLogs(query) {
+    if (!query || query.length < 2) return [];
+
+    const lowerQuery = query.toLowerCase();
+    const results = [];
+
+    // カレーログを検索 (name, menu, memo)
+    if (Array.isArray(curryLogs)) {
+        curryLogs.forEach(log => {
+            const nameMatch = log.name && log.name.toLowerCase().includes(lowerQuery);
+            const menuMatch = log.menu && log.menu.toLowerCase().includes(lowerQuery);
+            const memoMatch = log.memo && log.memo.toLowerCase().includes(lowerQuery);
+
+            if (nameMatch || menuMatch || memoMatch) {
+                results.push({
+                    type: 'curry-log',
+                    icon: '✅',
+                    label: '自分のログ(店舗)',
+                    name: log.name,
+                    info: log.address || log.vicinity || '',
+                    menu: log.menu || '',
+                    memo: log.memo || '',
+                    lat: log.lat,
+                    lng: log.lng,
+                    id: log.id,
+                    data: log
+                });
+            }
+        });
+    }
+
+    // カスタム地点を検索 (name, menu, memo)
+    const customPoints = getUserCustomPoints();
+    customPoints.forEach(point => {
+        const nameMatch = point.name && point.name.toLowerCase().includes(lowerQuery);
+        const menuMatch = point.menu && point.menu.toLowerCase().includes(lowerQuery);
+        const memoMatch = point.memo && point.memo.toLowerCase().includes(lowerQuery);
+
+        if (nameMatch || menuMatch || memoMatch) {
+            results.push({
+                type: 'custom-point',
+                icon: '📍',
+                label: '自分のログ(カスタム)',
+                name: point.name,
+                info: point.type || '',
+                menu: point.menu || '',
+                memo: point.memo || '',
+                lat: point.lat,
+                lng: point.lng,
+                id: point.id,
+                data: point
+            });
+        }
+    });
+
+    return results;
+}
+
+/**
+ * Places APIでサジェスト検索
+ * @param {string} query - 検索キーワード
+ * @returns {Promise<Array>} Places API検索結果
+ */
+async function searchPlacesSuggestions(query) {
+    if (!query || query.length < 2) return [];
+
+    try {
+        const request = {
+            textQuery: `${query} カレー`,
+            fields: ['displayName', 'location', 'formattedAddress', 'id'],
+            maxResultCount: 5
+        };
+
+        const { places } = await google.maps.places.Place.searchByText(request);
+
+        if (places && places.length > 0) {
+            return places.map(place => ({
+                type: 'places',
+                icon: '🍛',
+                label: '店舗(Places)',
+                name: place.displayName,
+                info: place.formattedAddress || '',
+                lat: place.location.lat(),
+                lng: place.location.lng(),
+                id: place.id || crypto.randomUUID(),
+                data: place
+            }));
+        }
+    } catch (error) {
+        console.error('[SearchSuggestion] Places API検索エラー:', error);
+    }
+
+    return [];
+}
+
+/**
+ * サジェストドロップダウンを表示
+ * @param {string} query - 検索キーワード
+ */
+async function showSuggestions(query) {
+    const container = document.getElementById('searchSuggestions');
+    if (!container) return;
+
+    if (!query || query.length < 2) {
+        container.classList.remove('visible');
+        currentSuggestions = [];
+        return;
+    }
+
+    // ローカルログ検索
+    const localResults = searchLocalLogs(query);
+
+    // Places API検索
+    const placesResults = await searchPlacesSuggestions(query);
+
+    // 結果をマージ（ローカルログを優先）
+    currentSuggestions = [...localResults, ...placesResults];
+
+    if (currentSuggestions.length === 0) {
+        container.classList.remove('visible');
+        return;
+    }
+
+    // 最大10件表示
+    const displayResults = currentSuggestions.slice(0, 10);
+
+    // HTML生成
+    let html = '';
+    displayResults.forEach((item, index) => {
+        html += `
+            <div class="suggestion-item" data-index="${index}">
+                <div class="suggestion-icon">${escapeHtml(item.icon)}</div>
+                <div class="suggestion-content">
+                    <div>
+                        <span class="suggestion-label ${item.type}">${escapeHtml(item.label)}</span>
+                    </div>
+                    <div class="suggestion-name">${escapeHtml(item.name)}</div>
+                    <div class="suggestion-info">${escapeHtml(item.info)}</div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    container.classList.add('visible');
+
+    // クリックイベントを設定
+    container.querySelectorAll('.suggestion-item').forEach(elem => {
+        elem.addEventListener('click', (e) => {
+            const index = parseInt(elem.dataset.index);
+            selectSuggestion(index);
+        });
+    });
+}
+
+/**
+ * サジェストを選択してズーム
+ * @param {number} index - サジェストのインデックス
+ */
+function selectSuggestion(index) {
+    const item = currentSuggestions[index];
+    if (!item) return;
+
+    // 地図をズーム
+    if (map && item.lat && item.lng) {
+        map.setCenter({ lat: item.lat, lng: item.lng });
+        map.setZoom(16);
+    }
+
+    // サジェストを閉じる
+    const container = document.getElementById('searchSuggestions');
+    if (container) container.classList.remove('visible');
+
+    // 検索ボックスをクリア
+    const searchBox = document.getElementById('searchBox');
+    if (searchBox) searchBox.value = '';
+
+    console.log('[SearchSuggestion] 選択:', item.name);
+}
+
+/**
+ * Enter キーで検索結果一覧を表示
+ * @param {string} query - 検索キーワード
+ */
+async function showSearchResults(query) {
+    const container = document.getElementById('searchResults');
+    if (!container) return;
+
+    if (!query || query.length < 2) {
+        container.classList.remove('visible');
+        currentSearchResults = [];
+        return;
+    }
+
+    // サジェストを閉じる
+    const suggestContainer = document.getElementById('searchSuggestions');
+    if (suggestContainer) suggestContainer.classList.remove('visible');
+
+    // ローカルログ検索
+    const localResults = searchLocalLogs(query);
+
+    // Places API検索
+    const placesResults = await searchPlacesSuggestions(query);
+
+    // 結果をマージ
+    currentSearchResults = [...localResults, ...placesResults];
+
+    if (currentSearchResults.length === 0) {
+        container.innerHTML = '<div class="suggestion-item"><div class="suggestion-content"><div class="suggestion-info">検索結果が見つかりませんでした</div></div></div>';
+        container.classList.add('visible');
+        return;
+    }
+
+    // 上位5件を表示
+    const displayResults = currentSearchResults.slice(0, 5);
+
+    // HTML生成
+    let html = '';
+    displayResults.forEach((item, index) => {
+        html += `
+            <div class="search-result-item" data-index="${index}">
+                <div class="result-name">${escapeHtml(item.icon)} ${escapeHtml(item.name)}</div>
+                <div class="result-info">
+                    <span class="suggestion-label ${item.type}">${escapeHtml(item.label)}</span>
+                    ${escapeHtml(item.info)}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    container.classList.add('visible');
+
+    // クリックイベントを設定
+    container.querySelectorAll('.search-result-item').forEach(elem => {
+        elem.addEventListener('click', (e) => {
+            const index = parseInt(elem.dataset.index);
+            selectSearchResult(index);
+        });
+    });
+
+    // Google Analytics
+    if (typeof gtag !== 'undefined') {
+        gtag('event', 'search_results_shown', {
+            'event_category': 'search',
+            'search_term': query,
+            'result_count': displayResults.length,
+            'event_label': `${query} - ${displayResults.length}件`,
+            'custom_parameter_1': 'search_results'
+        });
+    }
+}
+
+/**
+ * 検索結果を選択してズーム
+ * @param {number} index - 検索結果のインデックス
+ */
+function selectSearchResult(index) {
+    const item = currentSearchResults[index];
+    if (!item) return;
+
+    // 地図をズーム
+    if (map && item.lat && item.lng) {
+        map.setCenter({ lat: item.lat, lng: item.lng });
+        map.setZoom(16);
+    }
+
+    // 検索結果を閉じる
+    const container = document.getElementById('searchResults');
+    if (container) container.classList.remove('visible');
+
+    // 検索ボックスをクリア
+    const searchBox = document.getElementById('searchBox');
+    if (searchBox) searchBox.value = '';
+
+    console.log('[SearchResults] 選択:', item.name);
+}
+
+/**
+ * 検索関連のUIを閉じる
+ */
+function closeSearchUI() {
+    const suggestContainer = document.getElementById('searchSuggestions');
+    const resultsContainer = document.getElementById('searchResults');
+
+    if (suggestContainer) suggestContainer.classList.remove('visible');
+    if (resultsContainer) resultsContainer.classList.remove('visible');
+}
+
 // イベントリスナーの設定
 function setupEventListeners() {
     // 「食べた」ボタン
@@ -1014,14 +1311,42 @@ function setupEventListeners() {
         }
     });
 
-    // 検索機能
-    document.getElementById('searchBox').addEventListener('keypress', (e) => {
+    // 検索機能: input イベントでサジェスト表示（300ms debounce）
+    const searchBox = document.getElementById('searchBox');
+    searchBox.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+
+        // 既存のタイマーをクリア
+        clearTimeout(suggestDebounceTimeout);
+
+        if (query.length < 2) {
+            closeSearchUI();
+            return;
+        }
+
+        // 300ms debounce
+        suggestDebounceTimeout = setTimeout(() => {
+            showSuggestions(query);
+        }, 300);
+    });
+
+    // Enter キーで検索結果一覧を表示
+    searchBox.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
+            e.preventDefault();
             const query = e.target.value.trim();
-            if (query) {
-                console.log('検索実行:', query);
-                searchCurryByKeyword(query);
+            if (query && query.length >= 2) {
+                console.log('検索結果一覧を表示:', query);
+                showSearchResults(query);
             }
+        }
+    });
+
+    // 外クリックで閉じる
+    document.addEventListener('click', (e) => {
+        const searchWrapper = document.querySelector('.search-wrapper');
+        if (searchWrapper && !searchWrapper.contains(e.target)) {
+            closeSearchUI();
         }
     });
 }
