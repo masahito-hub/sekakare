@@ -85,6 +85,9 @@ function setCache(items) {
     }
 }
 
+// ホワイトリスト: 許可されるtype値（XSS対策）
+const ALLOWED_TYPES = ['pr', 'news'];
+
 // ticker.json取得・パース
 async function fetchTickerData() {
     const jsonUrl = 'https://sekakare.life/ticker.json';
@@ -109,16 +112,21 @@ async function fetchTickerData() {
         console.log('ticker.json取得完了:', jsonData.length + '件');
 
         // データのサニタイゼーション（XSS対策）
-        const sanitizedData = jsonData.map(item => ({
-            slot: parseInt(item.slot) || 999,
-            id: escapeHtml(item.id),
-            type: escapeHtml(item.type), // "pr" or "news"
-            title: escapeHtml(item.title),
-            url: item.url, // URLはisValidUrlで検証
-            tag: escapeHtml(item.tag || ''), // newsの場合のタグ（event, trend等）
-            published_at: item.published_at,
-            expires_at: item.expires_at || ''
-        }));
+        const sanitizedData = jsonData.map(item => {
+            // ホワイトリスト検証: typeがALLOWED_TYPESに含まれない場合はデフォルト値を設定
+            const safeType = ALLOWED_TYPES.includes(item.type) ? item.type : 'news';
+
+            return {
+                slot: parseInt(item.slot) || 999,
+                id: escapeHtml(item.id),
+                type: safeType, // ホワイトリスト検証済み
+                title: escapeHtml(item.title),
+                url: item.url, // URLはisValidUrlで検証
+                tag: escapeHtml(item.tag || ''), // newsの場合のタグ（event, trend等）
+                published_at: item.published_at,
+                expires_at: item.expires_at || ''
+            };
+        });
 
         return sanitizedData;
     } catch (error) {
@@ -285,6 +293,12 @@ async function initTicker() {
         }
     } catch (error) {
         console.error('ティッカー初期化エラー:', error);
+
+        // ユーザーへのエラー通知
+        if (typeof updateDebugInfo === 'function') {
+            updateDebugInfo('<strong>⚠️ ニュースの取得に失敗しました</strong> ネットワーク接続を確認してください');
+        }
+
         handleTickerError();
     }
 }

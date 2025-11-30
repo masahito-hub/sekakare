@@ -1586,16 +1586,7 @@ function updateCustomPointPhotoPreview() {
     });
 
     preview.innerHTML = html;
-
-    // 削除ボタンのイベントリスナー
-    preview.querySelectorAll('.photo-delete-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const photoId = btn.dataset.photoId;
-            customPointPhotos = customPointPhotos.filter(p => p.id !== photoId);
-            updateCustomPointPhotoPreview();
-        });
-    });
+    // イベントリスナーは親要素に委譲済み（setupCustomPointListeners内）
 }
 
 /**
@@ -1643,6 +1634,20 @@ function setupCustomPointListeners() {
             photoInput.click();
         });
         photoInput.addEventListener('change', handleCustomPointPhotoSelection);
+    }
+
+    // 写真削除ボタンのイベント委譲（メモリリーク防止）
+    const photoPreview = document.getElementById('customPointPhotoPreview');
+    if (photoPreview) {
+        photoPreview.addEventListener('click', (e) => {
+            // 削除ボタンがクリックされた場合のみ処理
+            if (e.target.classList.contains('photo-delete-btn')) {
+                e.stopPropagation();
+                const photoId = e.target.dataset.photoId;
+                customPointPhotos = customPointPhotos.filter(p => p.id !== photoId);
+                updateCustomPointPhotoPreview();
+            }
+        });
     }
 }
 
