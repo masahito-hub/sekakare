@@ -283,14 +283,6 @@ function displayLogsByRegion(logs) {
             const customPointIcon = isCustomPoint ? ' ✅' : '';
             const customPointLabel = isCustomPoint ? `<span class="custom-point-label">${escapeHtml(visit.type || '種類不明')}</span>` : '';
 
-            // カスタム地点の場合は編集・削除ボタンを表示
-            const actionButtons = isCustomPoint ? `
-                <div class="log-item-actions">
-                    <button class="btn-edit-custom" data-point-id="${escapeHtml(placeId)}" aria-label="編集">編集</button>
-                    <button class="btn-delete-custom" data-point-id="${escapeHtml(placeId)}" aria-label="削除">削除</button>
-                </div>
-            ` : '';
-
             html += `
                 <div class="log-card">
                     <button class="delete-icon" data-visit-id="${escapeHtml(visit.visitId)}" aria-label="削除">🗑️</button>
@@ -306,7 +298,6 @@ function displayLogsByRegion(logs) {
                     ${visit.menu ? `<p class="log-menu">🍛 ${escapeHtml(visit.menu)}</p>` : ''}
                     ${visit.memo ? `<p class="log-memo">📝 ${escapeHtml(visit.memo)}</p>` : ''}
                     ${generatePhotoThumbnails(visit.photos, placeId)}
-                    ${actionButtons}
                 </div>
             `;
         });
@@ -315,7 +306,6 @@ function displayLogsByRegion(logs) {
     });
 
     logsContainer.innerHTML = html;
-    setupCustomPointActions();
 }
 
 /**
@@ -350,14 +340,6 @@ function displayLogsByDate(logs) {
             const customPointIcon = isCustomPoint ? ' ✅' : '';
             const customPointLabel = isCustomPoint ? `<span class="custom-point-label">${escapeHtml(visit.type || '種類不明')}</span>` : '';
 
-            // カスタム地点の場合は編集・削除ボタンを表示
-            const actionButtons = isCustomPoint ? `
-                <div class="log-item-actions">
-                    <button class="btn-edit-custom" data-point-id="${escapeHtml(placeId)}" aria-label="編集">編集</button>
-                    <button class="btn-delete-custom" data-point-id="${escapeHtml(placeId)}" aria-label="削除">削除</button>
-                </div>
-            ` : '';
-
             html += `
                 <div class="log-card">
                     <button class="delete-icon" data-visit-id="${escapeHtml(visit.visitId)}" aria-label="削除">🗑️</button>
@@ -373,7 +355,6 @@ function displayLogsByDate(logs) {
                     ${visit.menu ? `<p class="log-menu">🍛 ${escapeHtml(visit.menu)}</p>` : ''}
                     ${visit.memo ? `<p class="log-memo">📝 ${escapeHtml(visit.memo)}</p>` : ''}
                     ${generatePhotoThumbnails(visit.photos, placeId)}
-                    ${actionButtons}
                 </div>
             `;
         });
@@ -382,7 +363,6 @@ function displayLogsByDate(logs) {
     }
 
     logsContainer.innerHTML = html;
-    setupCustomPointActions();
 }
 
 // 月ごとにグループ化する関数
@@ -1189,108 +1169,3 @@ function updateHeatmapAfterDelete(deletedLog) {
     }
 }
 
-/**
- * カスタム地点の編集・削除ボタンのイベントリスナー設定
- */
-function setupCustomPointActions() {
-    // 編集ボタン
-    document.querySelectorAll('.btn-edit-custom').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const pointId = btn.dataset.pointId;
-            if (pointId) {
-                editCustomPoint(pointId);
-            }
-        });
-    });
-
-    // 削除ボタン
-    document.querySelectorAll('.btn-delete-custom').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const pointId = btn.dataset.pointId;
-            if (pointId) {
-                deleteCustomPointConfirm(pointId);
-            }
-        });
-    });
-}
-
-/**
- * カスタム地点を編集
- * @param {string} pointId - カスタム地点ID
- */
-function editCustomPoint(pointId) {
-    const customPoints = getUserCustomPoints();
-    const point = customPoints.find(p => p.id === pointId);
-
-    if (!point) {
-        alert('カスタム地点が見つかりませんでした');
-        return;
-    }
-
-    // モーダルにデータをセット（カスタム地点用のフィールドを設定）
-    currentEditingLog = {
-        ...point,
-        placeId: point.id,
-        isCustomPoint: true
-    };
-
-    // 写真データを読み込み
-    currentPhotos = point.photos ? [...point.photos] : [];
-
-    // モーダルにデータを設定
-    const modalStoreName = document.getElementById('modalStoreName');
-    const modalVisitedAt = document.getElementById('modalVisitedAt');
-    const modalMenu = document.getElementById('modalMenu');
-    const modalMemo = document.getElementById('modalMemo');
-
-    if (modalStoreName) modalStoreName.textContent = point.name || '店舗名不明';
-    if (modalVisitedAt) modalVisitedAt.value = point.date || '';
-    if (modalMenu) modalMenu.value = point.menu || '';
-    if (modalMemo) modalMemo.value = point.memo || '';
-
-    // 写真プレビュー更新
-    updatePhotoPreview();
-
-    // モーダルを表示
-    editModal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-
-    // フォーカス可能要素を取得
-    updateFocusableElements();
-
-    // 最初の入力要素にフォーカス
-    if (modalVisitedAt) {
-        modalVisitedAt.focus();
-    }
-}
-
-/**
- * カスタム地点を削除（確認ダイアログ付き）
- * @param {string} pointId - カスタム地点ID
- */
-function deleteCustomPointConfirm(pointId) {
-    const customPoints = getUserCustomPoints();
-    const point = customPoints.find(p => p.id === pointId);
-
-    if (!point) {
-        alert('カスタム地点が見つかりませんでした');
-        return;
-    }
-
-    if (confirm(`「${point.name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
-        const success = deleteCustomPoint(pointId);
-        if (success) {
-            // ログ再表示
-            loadVisits();
-            displayLogs();
-            updateHeader();
-            showSaveSuccessMessage();
-        } else {
-            alert('削除に失敗しました');
-        }
-    }
-}
