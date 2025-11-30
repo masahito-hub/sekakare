@@ -245,44 +245,6 @@ body {
     font-weight: bold;
 }
 
-/* カスタム地点アクション */
-.log-item-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-}
-
-.btn-edit-custom,
-.btn-delete-custom {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.2s;
-}
-
-.btn-edit-custom {
-    background: #4CAF50;
-    color: white;
-}
-
-.btn-edit-custom:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-}
-
-.btn-delete-custom {
-    background: #f44336;
-    color: white;
-}
-
-.btn-delete-custom:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-}
-
 /* Empty State */
 .empty-state {
     text-align: center;
