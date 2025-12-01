@@ -1008,27 +1008,40 @@ function searchLocalLogs(query) {
     const results = [];
 
     // カレーログを検索 (name, menu, memo)
+    // 店舗IDでグループ化して重複を排除
     if (Array.isArray(curryLogs)) {
+        const visitCounts = {};
+
         curryLogs.forEach(log => {
             const nameMatch = log.name && log.name.toLowerCase().includes(lowerQuery);
             const menuMatch = log.menu && log.menu.toLowerCase().includes(lowerQuery);
             const memoMatch = log.memo && log.memo.toLowerCase().includes(lowerQuery);
 
             if (nameMatch || menuMatch || memoMatch) {
-                results.push({
-                    type: 'curry-log',
-                    icon: '✅',
-                    label: '自分のログ(店舗)',
-                    name: log.name,
-                    info: log.address || log.vicinity || '',
-                    menu: log.menu || '',
-                    memo: log.memo || '',
-                    lat: log.lat,
-                    lng: log.lng,
-                    id: log.id,
-                    data: log
-                });
+                if (!visitCounts[log.id]) {
+                    visitCounts[log.id] = { log, count: 0 };
+                }
+                visitCounts[log.id].count++;
             }
+        });
+
+        // 重複排除済みデータを結果に追加
+        Object.values(visitCounts).forEach(({ log, count }) => {
+            const displayName = count > 1 ? `${log.name} (${count}回訪問)` : log.name;
+
+            results.push({
+                type: 'curry-log',
+                icon: '✅',
+                label: '自分のログ(店舗)',
+                name: displayName,
+                info: log.address || log.vicinity || '',
+                menu: log.menu || '',
+                memo: log.memo || '',
+                lat: log.lat,
+                lng: log.lng,
+                id: log.id,
+                data: log
+            });
         });
     }
 
