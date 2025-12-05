@@ -1425,8 +1425,18 @@ let customPointLatLng = null; // 選択された地点の座標
 /**
  * 地図長押しイベントでカスタム地点追加モーダルを表示
  */
+// イベントリスナー重複登録を防ぐためのフラグ
+let customPointMapClickInitialized = false;
+
 function setupCustomPointMapClick() {
     if (!map) return;
+
+    // 既に初期化済みならスキップ
+    if (customPointMapClickInitialized) {
+        console.log('[LongPress] 既に初期化済み、スキップ');
+        return;
+    }
+    customPointMapClickInitialized = true;
 
     let longPressTimer = null;
     let longPressTriggered = false;
@@ -1497,9 +1507,13 @@ function setupCustomPointMapClick() {
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
 
+            console.log('[LongPress] touchstart', Date.now(), 'touches:', e.touches.length);
+
             longPressTimer = setTimeout(() => {
                 if (longPressCancelled) return;
                 longPressTriggered = true;
+
+                console.log('[LongPress] タイマー発火', Date.now());
 
                 // タッチ位置から緯度経度を計算
                 const bounds = map.getBounds();
@@ -1534,6 +1548,15 @@ function setupCustomPointMapClick() {
             // タイマーがなければ何もしない
             if (!longPressTimer) return;
 
+            // ピンチ操作検出（2本以上の指）
+            if (event.touches.length >= 2) {
+                longPressCancelled = true;
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+                console.log('[LongPress] キャンセル: ピンチ検出 (touches:', event.touches.length, ')');
+                return;
+            }
+
             if (event.touches[0]) {
                 const touch = event.touches[0];
                 const deltaX = Math.abs(touch.clientX - startX);
@@ -1549,7 +1572,8 @@ function setupCustomPointMapClick() {
             }
         }, { passive: true });
 
-        mapDiv.addEventListener('touchend', () => {
+        mapDiv.addEventListener('touchend', (e) => {
+            console.log('[LongPress] touchend', Date.now(), 'remaining touches:', e.touches.length);
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
