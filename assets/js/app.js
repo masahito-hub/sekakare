@@ -1497,9 +1497,13 @@ function setupCustomPointMapClick() {
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
 
+            console.log('[LongPress] touchstart', Date.now(), 'touches:', e.touches.length);
+
             longPressTimer = setTimeout(() => {
                 if (longPressCancelled) return;
                 longPressTriggered = true;
+
+                console.log('[LongPress] タイマー発火', Date.now());
 
                 // タッチ位置から緯度経度を計算
                 const bounds = map.getBounds();
@@ -1534,6 +1538,15 @@ function setupCustomPointMapClick() {
             // タイマーがなければ何もしない
             if (!longPressTimer) return;
 
+            // ピンチ操作検出（2本以上の指）
+            if (event.touches.length >= 2) {
+                longPressCancelled = true;
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+                console.log('[LongPress] キャンセル: ピンチ検出 (touches:', event.touches.length, ')');
+                return;
+            }
+
             if (event.touches[0]) {
                 const touch = event.touches[0];
                 const deltaX = Math.abs(touch.clientX - startX);
@@ -1549,7 +1562,9 @@ function setupCustomPointMapClick() {
             }
         }, { passive: true });
 
-        mapDiv.addEventListener('touchend', () => {
+        mapDiv.addEventListener('touchend', (e) => {
+            console.log('[LongPress] touchend', Date.now(), 'remaining touches:', e.touches.length);
+
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
