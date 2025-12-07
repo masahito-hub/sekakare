@@ -80,13 +80,22 @@ async function fetchCurryNews() {
     }
   }
 
-  // 日付順にソート（新しい順）
-  allNews.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+  // タイトルで重複排除
+  const seen = new Set();
+  const uniqueNews = allNews.filter(item => {
+    const key = item.title.replace(/<[^>]*>/g, '').trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
-  log(`📊 取得したニュース: ${allNews.length}件`);
+  // 日付順にソート（新しい順）
+  uniqueNews.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+  log(`📊 取得したニュース: ${allNews.length}件（重複排除後: ${uniqueNews.length}件）`);
 
   // 最大3件まで
-  return allNews.slice(0, 3);
+  return uniqueNews.slice(0, 3);
 }
 
 /**
