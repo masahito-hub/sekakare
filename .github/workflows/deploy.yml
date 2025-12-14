@@ -19,6 +19,9 @@ jobs:
           # GitHub SecretsのAPIキーを挿入
           sed -i "s/YOUR_API_KEY_HERE/${{ secrets.GOOGLE_PLACES_API_KEY }}/g" assets/js/config.js
 
+          # Google Analytics測定IDを挿入
+          sed -i "s/G-XXXXXXXXXX/${{ secrets.GA_MEASUREMENT_ID }}/g" assets/js/config.js
+
           echo "✅ config.js generated with API key from GitHub Secrets"
 
       - name: Deploy via FTP
