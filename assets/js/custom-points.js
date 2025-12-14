@@ -97,6 +97,16 @@ function saveCustomPoint(point) {
         localStorage.setItem(CUSTOM_POINTS_CONFIG.STORAGE_KEY, JSON.stringify(points));
 
         console.log('[CustomPoints] カスタム地点を保存しました:', sanitizedPoint.id);
+
+        // Google Analytics - カスタム地点登録イベント
+        if (typeof gtag !== 'undefined') {
+            gtag('event', 'custom_point_added', {
+                'event_category': 'user_action',
+                'point_type': sanitizedPoint.type,
+                'event_label': 'custom_point'
+            });
+        }
+
         return sanitizedPoint;
     } catch (error) {
         console.error('[CustomPoints] 保存エラー:', error);

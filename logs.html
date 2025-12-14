@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://maps.googleapis.com https://*.gstatic.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://maps.googleapis.com https://places.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
-    
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://maps.googleapis.com https://*.gstatic.com https://www.googletagmanager.com; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://maps.googleapis.com https://places.googleapis.com https://www.google-analytics.com https://www.googletagmanager.com; font-src 'self' data: https://fonts.gstatic.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+
     <title>🍛 ログ - セカカレ</title>
     <meta name="description" content="あなたのカレー旅ログを時系列で振り返る">
 
@@ -29,6 +29,15 @@
 
     <!-- 設定ファイル（Config） -->
     <script src="assets/js/config.js"></script>
+
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', Config.GA_ID);
+    </script>
 
     <!-- カスタム地点管理JS -->
     <script src="assets/js/custom-points.js"></script>
