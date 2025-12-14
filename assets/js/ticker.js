@@ -175,7 +175,7 @@ function createTickerItemHTML(item) {
         emoji = '🔥';
     }
 
-    const title = item.title || '（タイトルなし）';
+    const title = escapeHtml(item.title || '（タイトルなし）');
     const validUrl = isValidUrl(item.url);
     const href = validUrl ? item.url : '#';
     const target = validUrl ? '_blank' : '_self';
