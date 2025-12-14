@@ -84,9 +84,10 @@ async function fetchCurryNews() {
   const seen = new Set();
   const uniqueNews = allNews.filter(item => {
     const key = item.title
-      .replace(/<[^>]*>/g, '')  // HTMLタグ除去
-      .replace(/\s+/g, '')       // 空白を全て除去
-      .toLowerCase()             // 小文字化
+      .replace(/<[^>]*>/g, '')      // HTMLタグ除去
+      .replace(/[（(｜|].*$/g, '')  // ソース表記を除去
+      .replace(/\s+/g, '')           // 空白を全て除去
+      .toLowerCase()                 // 小文字化
       .trim();
     if (seen.has(key)) return false;
     seen.add(key);
