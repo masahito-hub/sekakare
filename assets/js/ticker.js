@@ -185,7 +185,7 @@ function createTickerItemHTML(item) {
         <div class="ticker-item">
             <span class="ticker-emoji">${emoji}</span>
             <span class="ticker-category ${categoryClass}">${categoryText}</span>
-            <a href="${href}" target="${target}" ${rel ? `rel="${rel}"` : ''}>${title}</a>
+            <a href="${href}" target="${target}" ${rel ? `rel="${rel}"` : ''} onclick="trackTickerClick('${item.type}', '${escapeHtml(item.title)}')">${title}</a>
         </div>
     `;
 }
@@ -360,12 +360,30 @@ if (typeof window !== 'undefined') {
     }
 }
 
+// ティッカークリック追跡関数
+function trackTickerClick(type, title) {
+    // Google Analytics - ティッカーリンククリックイベント
+    if (typeof gtag !== 'undefined') {
+        gtag('event', 'ticker_click', {
+            'event_category': 'engagement',
+            'ticker_type': type,
+            'event_label': title
+        });
+    }
+}
+
+// trackTickerClick関数をグローバルに公開（onclick属性からアクセス可能に）
+if (typeof window !== 'undefined') {
+    window.trackTickerClick = trackTickerClick;
+}
+
 // エクスポート（テスト用）
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         initTicker,
         isValidUrl,
         escapeHtml,
-        cleanup
+        cleanup,
+        trackTickerClick
     };
 }
