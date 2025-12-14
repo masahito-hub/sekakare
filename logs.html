@@ -38,6 +38,15 @@
 
     <!-- ハンバーガーメニューJS -->
     <script src="assets/js/menu.js"></script>
+
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', Config.GA_ID);
+    </script>
 </head>
 <body>
     <!-- ヘッダー -->

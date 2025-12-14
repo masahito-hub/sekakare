@@ -175,19 +175,36 @@ function createTickerItemHTML(item) {
         emoji = '🔥';
     }
 
+    // XSS対策: エスケープ済みのtitleを使用
     const title = item.title || '（タイトルなし）';
     const validUrl = isValidUrl(item.url);
-    const href = validUrl ? item.url : '#';
+    const href = validUrl ? escapeHtml(item.url) : '#';
     const target = validUrl ? '_blank' : '_self';
     const rel = validUrl ? 'noopener noreferrer' : '';
 
-    return `
-        <div class="ticker-item">
-            <span class="ticker-emoji">${emoji}</span>
-            <span class="ticker-category ${categoryClass}">${categoryText}</span>
-            <a href="${href}" target="${target}" ${rel ? `rel="${rel}"` : ''}>${title}</a>
-        </div>
-    `;
+    // DOM操作による安全なHTML生成（XSS対策）
+    const container = document.createElement('div');
+    container.className = 'ticker-item';
+
+    const emojiSpan = document.createElement('span');
+    emojiSpan.className = 'ticker-emoji';
+    emojiSpan.textContent = emoji;
+
+    const categorySpan = document.createElement('span');
+    categorySpan.className = `ticker-category ${categoryClass}`;
+    categorySpan.textContent = categoryText;
+
+    const link = document.createElement('a');
+    link.href = validUrl ? item.url : '#';
+    link.target = target;
+    if (rel) link.rel = rel;
+    link.textContent = title;
+
+    container.appendChild(emojiSpan);
+    container.appendChild(categorySpan);
+    container.appendChild(link);
+
+    return container.outerHTML;
 }
 
 // フェードイン・アウトアニメーション開始
