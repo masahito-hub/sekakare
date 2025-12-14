@@ -120,7 +120,7 @@ async function fetchTickerData() {
                 slot: parseInt(item.slot) || 999,
                 id: escapeHtml(item.id),
                 type: safeType, // ホワイトリスト検証済み
-                title: escapeHtml(item.title),
+                title: item.title,
                 url: item.url, // URLはisValidUrlで検証
                 tag: escapeHtml(item.tag || ''), // newsの場合のタグ（event, trend等）
                 published_at: item.published_at,
