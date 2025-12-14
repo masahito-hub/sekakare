@@ -80,10 +80,14 @@ async function fetchCurryNews() {
     }
   }
 
-  // タイトルで重複排除
+  // タイトルで重複排除（正規化を強化）
   const seen = new Set();
   const uniqueNews = allNews.filter(item => {
-    const key = item.title.replace(/<[^>]*>/g, '').trim();
+    const key = item.title
+      .replace(/<[^>]*>/g, '')  // HTMLタグ除去
+      .replace(/\s+/g, '')       // 空白を全て除去
+      .toLowerCase()             // 小文字化
+      .trim();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
