@@ -1367,7 +1367,7 @@ function setupEventListeners() {
 // 地図を読み込み
 function loadGoogleMaps() {
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${Config.API_KEY}&libraries=places,marker,visualization&callback=initMap`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${Config.API_KEY}&v=3.64&libraries=places,marker,visualization&callback=initMap`;
     script.async = true;
     script.onerror = () => {
         console.error('Google Maps APIの読み込みに失敗しました');
